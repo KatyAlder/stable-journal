@@ -116,10 +116,10 @@ h3{font-size:15.5px; font-weight:800; margin-bottom:8px;}
 .yearnav button:hover{background:var(--primary-soft);color:var(--text);}
 
 .grid-wrap{overflow-x:auto; padding-bottom:6px;}
-.ygrid{display:grid; grid-template-columns:64px repeat(31, 20px); gap:2px; width:max-content;}
+.ygrid{display:grid; grid-template-columns:84px repeat(31, 20px); gap:2px; width:max-content;}
 .ygrid .mlabel{
   position:sticky; left:0; background:var(--surface); z-index:2; font-size:12.5px; font-weight:700;
-  color:var(--text-soft); display:flex; align-items:center; padding-right:8px; justify-content:flex-end;
+  color:var(--text-soft); display:flex; align-items:center; padding-left:4px; padding-right:10px; justify-content:flex-end;
 }
 .ygrid .dlabel{font-size:10.5px; color:var(--text-soft); text-align:center; font-weight:600;}
 .mabbr{display:none;}
@@ -232,6 +232,34 @@ table.tbl{width:100%; border-collapse:collapse; font-size:14px;}
 /* ---------- auth ---------- */
 .auth-banner{background:linear-gradient(90deg, var(--primary-soft), transparent); border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; margin-bottom:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;}
 
+/* ---------- notes panel ---------- */
+.nav-btn.notes-toggle{display:inline-flex; align-items:center; gap:5px;}
+.nav-btn.notes-toggle svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.nav-btn.notes-toggle.active{color:#7E6BA8;}
+.paidchk{width:18px;height:18px;accent-color:var(--secondary);cursor:pointer;vertical-align:middle;}
+
+#notesPanel{
+  display:none; position:fixed; z-index:55; flex-direction:column;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:0 8px 30px rgba(61,56,48,.16);
+}
+.notes-head{display:flex; align-items:center; justify-content:space-between; padding:12px 14px 6px;}
+.notes-title{display:flex; align-items:center; gap:7px; font-weight:800; font-size:15px;}
+.notes-title svg{width:17px;height:17px;stroke:#7E6BA8;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+#notesArea{
+  flex:1; resize:none; border:none; outline:none; background:none; padding:2px 14px 6px;
+  font-family:inherit; font-size:14.5px; line-height:1.5; color:var(--text); min-height:140px;
+}
+.notes-foot{padding:4px 14px 12px;}
+@media (min-width:720px){
+  #notesPanel{ top:118px; right:18px; width:300px; max-height:calc(100vh - 150px); }
+  body.notes-open{ padding-right:336px; }
+}
+@media (max-width:719px){
+  #notesPanel{ left:8px; right:8px; bottom:calc(58px + env(safe-area-inset-bottom)); max-height:46vh; }
+  #notesArea{ min-height:110px; }
+}
+
 /* ---------- mobile ---------- */
 @media (max-width:719px){
   nav.topnav{display:none;}
@@ -248,7 +276,7 @@ table.tbl{width:100%; border-collapse:collapse; font-size:14px;}
   .bottomnav button.active{color:#7E6BA8;}
   .hdr-inner{padding:8px 12px;}
   .pix{width:17px;height:17px;}
-  .ygrid{grid-template-columns:44px repeat(31, 17px);}
+  .ygrid{grid-template-columns:50px repeat(31, 17px);}
   .mfull{display:none;} .mabbr{display:inline;}
   main{padding:14px 12px 86px;}
 }
@@ -268,6 +296,7 @@ table.tbl{width:100%; border-collapse:collapse; font-size:14px;}
   <nav class="topnav" id="topnav"></nav>
 </header>
 <main id="view"></main>
+<aside id="notesPanel" aria-label="Нотатка"></aside>
 <nav class="bottomnav" id="bottomnav"></nav>
 <div id="modal-root"></div>
 <div id="toasts"></div>
@@ -300,6 +329,9 @@ const ui = {
   jFilters: { year:'all', month:'all', types:[], place:'all', q:'all', durMin:'' },
   cFilters: { month:'all', name:'', horse:'all' },
   statsYear: new Date().getFullYear(),
+  notesOpen: false,
+  clientsView: 'list',
+  clientsStatsYear: new Date().getFullYear(),
 };
 
 const MONTHS = ['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'];
@@ -317,6 +349,8 @@ const IC = {
   upload: '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
   alert: '<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
   keyboard: '<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 13h6"/></svg>',
+  copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  note: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>',
 };
 const PASTELS = ['#F2E6FF','#D4ECD4','#FFE8D4','#D4E8FF','#FFD4D4','#FFF3C4','#D4F0EC','#F0D4E8','#E2E2D4','#D9D4F0'];
 
@@ -366,6 +400,8 @@ function normalizeData(d){
   d.settings.eventCategories = (d.settings.eventCategories || []).map(c =>
     typeof c === 'string' ? { name: c, color: EV_COLORS[c] || '#E8C8B8' } : c);
   (d.workTypes || []).forEach(w => { if(w.rest === undefined) w.rest = /відпочин/i.test(w.name); });
+  (d.clients || []).forEach(c => { if(c.paid === undefined) c.paid = false; });
+  if(d.settings.note === undefined) d.settings.note = '';
   return d;
 }
 function catColor(name){
@@ -584,11 +620,14 @@ const NAV = [
 ];
 
 function renderNav(){
+  const notesTop = '<button class="nav-btn notes-toggle' + (ui.notesOpen?' active':'') + '" data-notes-toggle>' + IC.note + 'Нотатка</button>';
+  const notesBot = '<button class="' + (ui.notesOpen?'active':'') + '" data-notes-toggle>' + IC.note + 'Нотатка</button>';
   $('#topnav').innerHTML = NAV.map(([k,n]) =>
-    '<button class="nav-btn' + (ui.view===k?' active':'') + '" data-v="' + k + '">' + n + '</button>').join('');
+    '<button class="nav-btn' + (ui.view===k?' active':'') + '" data-v="' + k + '">' + n + '</button>').join('') + notesTop;
   $('#bottomnav').innerHTML = NAV.map(([k,n]) =>
-    '<button class="' + (ui.view===k?'active':'') + '" data-v="' + k + '">' + SVGI[k] + n + '</button>').join('');
+    '<button class="' + (ui.view===k?'active':'') + '" data-v="' + k + '">' + SVGI[k] + n + '</button>').join('') + notesBot;
   document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { ui.view = b.dataset.v; render(); });
+  document.querySelectorAll('[data-notes-toggle]').forEach(b => b.onclick = () => { ui.notesOpen = !ui.notesOpen; renderNav(); renderNotes(); });
 }
 
 function renderHorseSwitch(){
@@ -610,6 +649,25 @@ function render(){
   else if(ui.view==='stats') v.innerHTML = viewStats();
   else v.innerHTML = viewSettings();
   bindView();
+  renderNotes();
+}
+
+/* ---------------- панель нотатки ---------------- */
+function renderNotes(){
+  const panel = $('#notesPanel');
+  if(!panel) return;
+  document.body.classList.toggle('notes-open', ui.notesOpen);
+  if(!ui.notesOpen){ panel.style.display = 'none'; panel.innerHTML = ''; return; }
+  panel.style.display = 'flex';
+  panel.innerHTML =
+    '<div class="notes-head"><span class="notes-title">' + IC.note + 'Нотатка</span>' +
+    '<button class="iconbtn" id="notesClose" title="Згорнути">' +
+    '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>' +
+    '<textarea id="notesArea" placeholder="Коротенькі записи для себе…">' + esc(data.settings.note || '') + '</textarea>' +
+    '<div class="notes-foot muted" id="notesSaved">Зберігається автоматично</div>';
+  const ta = $('#notesArea');
+  ta.oninput = () => { data.settings.note = ta.value; markDirty(); };
+  $('#notesClose').onclick = () => { ui.notesOpen = false; renderNav(); renderNotes(); };
 }
 
 /* ---------------- вибірки ---------------- */
@@ -1025,7 +1083,17 @@ function bindEvents(){
 }
 
 /* ---------------- КЛІЄНТИ ---------------- */
+function clientNames(){ return [...new Set(data.clients.map(c => c.clientName).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'uk')); }
+
 function viewClients(){
+  const head = '<div class="card"><div class="row spread"><h2>Клієнти</h2>' +
+    '<button class="btn small" id="clAdd">+ Тренування</button></div>' +
+    '<div class="seg" style="margin-bottom:14px;">' +
+      '<button id="cvList" class="' + (ui.clientsView==='list'?'active':'') + '">Список</button>' +
+      '<button id="cvStats" class="' + (ui.clientsView==='stats'?'active':'') + '">Статистика</button></div>';
+
+  if(ui.clientsView === 'stats') return head + clientsStats() + '</div>';
+
   const f = ui.cFilters;
   let list = data.clients.filter(c => {
     if(f.month !== 'all' && c.date.slice(0,7) !== f.month) return false;
@@ -1034,53 +1102,117 @@ function viewClients(){
     return true;
   }).sort((a,b) => b.date.localeCompare(a.date));
   const total = list.reduce((s,c) => s + (Number(c.amount) || 0), 0);
+  const paidTotal = list.reduce((s,c) => s + (c.paid ? (Number(c.amount) || 0) : 0), 0);
   const months = [...new Set(data.clients.map(c => c.date.slice(0,7)))].sort().reverse();
 
-  let html = '<div class="card"><div class="row spread"><h2>Клієнти</h2><button class="btn small" id="clAdd">+ Тренування</button></div>' +
+  let html = head +
     '<div class="filters">' +
     '<div class="f"><label>Місяць</label><select id="clMonth"><option value="all">всі</option>' +
       months.map(m => { const [y,mm] = m.split('-'); return '<option value="' + m + '"' + (f.month===m?' selected':'') + '>' + MONTHS[Number(mm)-1] + ' ' + y + '</option>'; }).join('') + '</select></div>' +
     '<div class="f"><label>Ім\'я</label><input type="text" id="clName" value="' + esc(f.name) + '" placeholder="пошук…"></div>' +
     '<div class="f"><label>Кінь</label><select id="clHorse"><option value="all">всі</option>' +
       data.horses.map(h => '<option value="' + h.id + '"' + (f.horse===h.id?' selected':'') + '>' + esc(h.name) + (h.clientOnly ? ' (кл.)' : '') + '</option>').join('') + '</select></div></div>' +
-    '<div class="sum-banner">Разом за період: <span style="font-size:19px;">' + total.toLocaleString('uk-UA') + ' грн</span><span class="muted">(' + list.length + ' трен.)</span></div>';
+    '<div class="sum-banner">Разом за період: <span style="font-size:19px;">' + total.toLocaleString('uk-UA') + ' грн</span>' +
+      '<span class="muted">(' + list.length + ' трен.)</span>' +
+      '<span class="muted" style="margin-left:auto;font-weight:700;">сплачено: ' + paidTotal.toLocaleString('uk-UA') + ' грн</span></div>';
 
   if(!list.length) html += '<p class="muted">Тренувань за цими фільтрами немає.</p>';
   else {
-    html += '<div style="overflow-x:auto;"><table class="tbl"><tr><th>Дата</th><th>Клієнт</th><th>Тип</th><th>Кінь</th><th>Грн</th><th>Нотатки</th><th></th></tr>';
+    html += '<div style="overflow-x:auto;"><table class="tbl"><tr><th>Дата</th><th>Клієнт</th><th>Тип</th><th>Кінь</th><th>Грн</th><th style="text-align:center;">Сплач.</th><th>Нотатки</th><th></th></tr>';
     html += list.map(c => '<tr><td style="white-space:nowrap;">' + fmtDateShort(c.date) + '.' + c.date.slice(2,4) + '</td>' +
       '<td><b>' + esc(c.clientName) + '</b></td><td>' + esc(c.lessonType || '') + '</td>' +
       '<td>' + esc((horseById(c.horseId) || {}).name || '—') + '</td>' +
       '<td>' + (c.amount ? Number(c.amount).toLocaleString('uk-UA') : '—') + '</td>' +
+      '<td style="text-align:center;"><input type="checkbox" class="paidchk" data-paid="' + c.id + '"' + (c.paid ? ' checked' : '') + ' title="Сплачено"></td>' +
       '<td class="muted">' + esc(c.notes || '') + '</td>' +
-      '<td style="white-space:nowrap;"><button class="iconbtn" data-ec="' + c.id + '">' + IC.edit + '</button><button class="iconbtn" data-dc="' + c.id + '">' + IC.trash + '</button></td></tr>').join('');
+      '<td style="white-space:nowrap;"><button class="iconbtn" data-cpc="' + c.id + '" title="Копіювати">' + IC.copy + '</button><button class="iconbtn" data-ec="' + c.id + '" title="Редагувати">' + IC.edit + '</button><button class="iconbtn" data-dc="' + c.id + '" title="Видалити">' + IC.trash + '</button></td></tr>').join('');
     html += '</table></div>';
   }
   html += '</div>';
   return html;
 }
 
-function clientForm(id){
+function clientsStats(){
+  const y = ui.clientsStatsYear;
+  const all = data.clients;
+  const years = [...new Set([...all.map(c => c.date.slice(0,4)), String(new Date().getFullYear())])].sort().reverse();
+  const inYear = all.filter(c => c.date.slice(0,4) == y);
+  const total = inYear.reduce((s,c) => s + (Number(c.amount)||0), 0);
+  const paid = inYear.reduce((s,c) => s + (c.paid ? (Number(c.amount)||0) : 0), 0);
+  const debt = total - paid;
+
+  let html = '<div class="row spread" style="margin-bottom:12px;align-items:center;"><h3 style="margin:0;">Підсумки за рік</h3>' +
+    '<select id="csYear" style="border:1.5px solid var(--border);border-radius:9px;padding:5px 9px;background:#fff;font-weight:700;">' +
+    years.map(yy => '<option' + (yy == y?' selected':'') + '>' + yy + '</option>').join('') + '</select></div>' +
+    '<div class="statcards">' +
+    '<div class="statcard"><div class="v">' + total.toLocaleString('uk-UA') + '</div><div class="l">дохід за рік, грн</div></div>' +
+    '<div class="statcard"><div class="v">' + paid.toLocaleString('uk-UA') + '</div><div class="l">сплачено, грн</div></div>' +
+    '<div class="statcard"><div class="v"' + (debt>0?' style="color:var(--danger);"':'') + '>' + debt.toLocaleString('uk-UA') + '</div><div class="l">очікує оплати, грн</div></div>' +
+    '<div class="statcard"><div class="v">' + inYear.length + '</div><div class="l">тренувань</div></div>' +
+    '</div>';
+
+  if(!inYear.length){
+    html += '<p class="muted">За ' + y + ' рік тренувань ще немає.</p>';
+    return html;
+  }
+
+  html += '<h3>Дохід по місяцях</h3><div class="chartbox"><canvas id="chClMonth"></canvas></div>';
+
+  // таблиця по клієнтах
+  const map = new Map();
+  inYear.forEach(c => {
+    const k = c.clientName || '—';
+    const o = map.get(k) || { name:k, count:0, total:0, paid:0 };
+    o.count++; o.total += Number(c.amount)||0; if(c.paid) o.paid += Number(c.amount)||0;
+    map.set(k, o);
+  });
+  const rows = [...map.values()].sort((a,b) => b.total - a.total);
+  html += '<div style="height:20px;"></div><h3>По клієнтах за ' + y + ' рік</h3>' +
+    '<div style="overflow-x:auto;"><table class="tbl"><tr><th>Клієнт</th><th>Трен.</th><th>Усього, грн</th><th>Сплачено</th><th>Борг</th></tr>' +
+    rows.map(r => { const d = r.total - r.paid;
+      return '<tr><td><b>' + esc(r.name) + '</b></td><td>' + r.count + '</td>' +
+        '<td>' + r.total.toLocaleString('uk-UA') + '</td><td>' + r.paid.toLocaleString('uk-UA') + '</td>' +
+        '<td' + (d>0?' style="color:var(--danger);font-weight:700;"':'') + '>' + d.toLocaleString('uk-UA') + '</td></tr>'; }).join('') +
+    '</table></div>';
+  return html;
+}
+
+function clientForm(id, copyFromId){
   const c = id ? data.clients.find(x => x.id === id) : null;
-  const html = '<h2>' + (c ? 'Редагувати тренування' : 'Нове тренування') + '</h2>' +
+  const src = c || (copyFromId ? data.clients.find(x => x.id === copyFromId) : null);
+  const isCopy = !id && !!copyFromId;
+  const names = clientNames();
+  const curName = src ? (src.clientName || '') : '';
+  const html = '<h2>' + (c ? 'Редагувати тренування' : (isCopy ? 'Копія тренування' : 'Нове тренування')) + '</h2>' +
     '<div class="field"><label>Дата</label><input type="date" id="cDate" value="' + (c ? c.date : todayISO()) + '"></div>' +
-    '<div class="field"><label>Ім\'я клієнта</label><input type="text" id="cName" value="' + esc(c && c.clientName || '') + '"></div>' +
-    '<div class="field"><label>Тип тренування</label><input type="text" id="cType" value="' + esc(c && c.lessonType || '') + '" placeholder="напр., манежне, виїзд у ліс…"></div>' +
+    '<div class="field"><label>Ім\'я клієнта</label><select id="cNameSel"><option value="">—</option>' +
+      names.map(n => '<option' + (curName===n?' selected':'') + '>' + esc(n) + '</option>').join('') +
+      '<option value="__new__">+ нове ім\'я…</option></select></div>' +
+    '<div class="field" id="cNewNameWrap" style="display:none;"><label>Нове ім\'я клієнта</label><input type="text" id="cNewName"></div>' +
+    '<div class="field"><label>Тип тренування</label><input type="text" id="cType" value="' + esc(src && src.lessonType || '') + '" placeholder="напр., манежне, виїзд у ліс…"></div>' +
     '<div class="field"><label>Кінь</label><select id="cHorse"><option value="">—</option>' +
-      selectableHorses().map(h => '<option value="' + h.id + '"' + (c && c.horseId===h.id?' selected':'') + '>' + esc(h.name) + (h.clientOnly ? ' (клієнтський)' : '') + '</option>').join('') +
+      selectableHorses().map(h => '<option value="' + h.id + '"' + (src && src.horseId===h.id?' selected':'') + '>' + esc(h.name) + (h.clientOnly ? ' (клієнтський)' : '') + '</option>').join('') +
       '<option value="__new__">+ новий кінь…</option></select></div>' +
     '<div class="field" id="cNewHorseWrap" style="display:none;"><label>Кличка нового коня</label><input type="text" id="cNewHorse">' +
       '<p class="muted" style="margin-top:4px;">Додасться як «клієнтський» — без щоденника й трекера. Змінити це можна в Налаштуваннях.</p></div>' +
-    '<div class="field"><label>Вартість, грн</label><input type="number" id="cAmount" min="0" value="' + (c && c.amount || '') + '"></div>' +
-    '<div class="field"><label>Нотатки</label><textarea id="cNotes">' + esc(c && c.notes || '') + '</textarea></div>' +
+    '<div class="field"><label>Вартість, грн</label><input type="number" id="cAmount" min="0" value="' + (src && src.amount || '') + '"></div>' +
+    '<div class="field"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:14px;color:var(--text);">' +
+      '<input type="checkbox" id="cPaid"' + (c && c.paid ? ' checked' : '') + ' style="width:16px;height:16px;accent-color:var(--secondary);">Сплачено</label></div>' +
+    '<div class="field"><label>Нотатки</label><textarea id="cNotes">' + esc(src && src.notes || '') + '</textarea></div>' +
     '<div class="modal-foot"><button class="btn sec" id="cCancel">Скасувати</button><button class="btn" id="cSave">Зберегти</button></div>';
   const m = showModal(html);
+  m.querySelector('#cNameSel').onchange = e => {
+    m.querySelector('#cNewNameWrap').style.display = e.target.value === '__new__' ? '' : 'none';
+  };
   m.querySelector('#cHorse').onchange = e => {
     m.querySelector('#cNewHorseWrap').style.display = e.target.value === '__new__' ? '' : 'none';
   };
   m.querySelector('#cCancel').onclick = closeModal;
   m.querySelector('#cSave').onclick = () => {
-    const date = m.querySelector('#cDate').value, name = m.querySelector('#cName').value.trim();
+    const date = m.querySelector('#cDate').value;
+    let name = m.querySelector('#cNameSel').value;
+    if(name === '__new__') name = m.querySelector('#cNewName').value;
+    name = (name || '').trim();
     if(!date || !name) return toast('Вкажіть дату та ім\'я', 'error');
     let horseId = m.querySelector('#cHorse').value || null;
     if(horseId === '__new__'){
@@ -1098,27 +1230,66 @@ function clientForm(id){
       lessonType: m.querySelector('#cType').value.trim(),
       horseId,
       amount: Number(m.querySelector('#cAmount').value) || 0,
+      paid: m.querySelector('#cPaid').checked,
       notes: m.querySelector('#cNotes').value.trim(),
       updatedAt: Date.now(),
     };
     if(c) Object.assign(c, rec); else data.clients.push(rec);
-    markDirty(); closeModal(); render(); toast('Збережено', 'ok');
+    markDirty(); closeModal(); render(); toast(isCopy ? 'Копію створено' : 'Збережено', 'ok');
   };
 }
 
 function bindClients(){
   if(!$('#clAdd')) return;
   $('#clAdd').onclick = () => clientForm();
+  if($('#cvList')) $('#cvList').onclick = () => { ui.clientsView = 'list'; render(); };
+  if($('#cvStats')) $('#cvStats').onclick = () => { ui.clientsView = 'stats'; render(); };
+
+  if(ui.clientsView === 'stats'){
+    if($('#csYear')) $('#csYear').onchange = e => { ui.clientsStatsYear = Number(e.target.value); render(); };
+    drawClientsChart();
+    return;
+  }
+
   $('#clMonth').onchange = e => { ui.cFilters.month = e.target.value; render(); };
   $('#clHorse').onchange = e => { ui.cFilters.horse = e.target.value; render(); };
   let nameTimer;
   $('#clName').oninput = e => { clearTimeout(nameTimer); nameTimer = setTimeout(() => { ui.cFilters.name = e.target.value; render(); $('#clName').focus(); }, 400); };
+  document.querySelectorAll('[data-paid]').forEach(chk => chk.onchange = () => {
+    const c = data.clients.find(x => x.id === chk.dataset.paid);
+    if(c){ c.paid = chk.checked; c.updatedAt = Date.now(); markDirty(); render(); }
+  });
+  document.querySelectorAll('[data-cpc]').forEach(b => b.onclick = () => clientForm(null, b.dataset.cpc));
   document.querySelectorAll('[data-ec]').forEach(b => b.onclick = () => clientForm(b.dataset.ec));
   document.querySelectorAll('[data-dc]').forEach(b => b.onclick = () => confirmModal('Видалити це тренування?', () => {
     markDeleted(b.dataset.dc);
     data.clients = data.clients.filter(c => c.id !== b.dataset.dc);
     markDirty(); render(); toast('Видалено');
   }));
+}
+
+function drawClientsChart(){
+  if(!$('#chClMonth')) return;
+  if(typeof Chart === 'undefined'){
+    $('#chClMonth').parentElement.innerHTML = '<p class="muted" style="padding-top:24px;">Не вдалося завантажити бібліотеку графіків. Перевірте з\'єднання та оновіть сторінку.</p>';
+    return;
+  }
+  const y = ui.clientsStatsYear;
+  const labels = MONTHS.map(m => m.slice(0,3));
+  const paidArr = Array(12).fill(0), debtArr = Array(12).fill(0);
+  data.clients.filter(c => c.date.slice(0,4) == y).forEach(c => {
+    const mi = Number(c.date.slice(5,7)) - 1, amt = Number(c.amount)||0;
+    if(c.paid) paidArr[mi] += amt; else debtArr[mi] += amt;
+  });
+  const gridCol = 'rgba(61,56,48,.08)';
+  const opt = { responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ font:{ family:'Nunito', weight:700 }, color:'#7A7068', boxWidth:14 } } },
+    scales:{ x:{ stacked:true, grid:{ color:gridCol }, ticks:{ color:'#7A7068', font:{ family:'Nunito' } } },
+             y:{ stacked:true, grid:{ color:gridCol }, ticks:{ color:'#7A7068', font:{ family:'Nunito' } } } } };
+  charts.push(new Chart($('#chClMonth'), { type:'bar', data:{ labels, datasets:[
+    { label:'Сплачено', data:paidArr, backgroundColor:'#A8C4A2', borderRadius:4 },
+    { label:'Очікує оплати', data:debtArr, backgroundColor:'#E8C8B8', borderRadius:4 },
+  ] }, options: opt }));
 }
 
 /* ---------------- СТАТИСТИКА ---------------- */
@@ -1133,7 +1304,6 @@ function viewStats(){
   const hours = work.reduce((a,s) => a + (s.duration || 0), 0) / 60;
   const qVals = work.filter(s => s.quality).map(s => s.quality);
   const avgQ = qVals.length ? (qVals.reduce((a,b) => a+b,0) / qVals.length).toFixed(1) : '—';
-  const income = data.clients.filter(c => c.date.slice(0,4) == y).reduce((a,c) => a + (Number(c.amount)||0), 0);
 
   let html = '<div class="card"><div class="row spread"><h2>Статистика — ' + esc(horse().name) + '</h2>' +
     '<select id="stYear" style="border:1.5px solid var(--border);border-radius:9px;padding:5px 9px;background:#fff;font-weight:700;">' +
@@ -1143,17 +1313,15 @@ function viewStats(){
     '<div class="statcard"><div class="v">' + restDays + '</div><div class="l">днів відпочинку</div></div>' +
     '<div class="statcard"><div class="v">' + (hours ? hours.toFixed(1) : '—') + '</div><div class="l">годин роботи</div></div>' +
     '<div class="statcard"><div class="v">' + avgQ + '</div><div class="l">середня якість</div></div>' +
-    '<div class="statcard"><div class="v">' + income.toLocaleString('uk-UA') + '</div><div class="l">дохід, грн (всі коні)</div></div>' +
     '</div>';
 
-  if(!sess.length && !income){
+  if(!sess.length){
     html += '<p class="muted">Даних за ' + y + ' рік поки недостатньо. Додайте кілька сесій — і графіки оживуть</p></div>';
     return html;
   }
   html += '<h3>Типи роботи по місяцях</h3><div class="chartbox"><canvas id="chTypes"></canvas></div>' +
     '<div style="height:20px;"></div><h3>Середня якість по місяцях</h3><div class="chartbox"><canvas id="chQuality"></canvas></div>' +
-    '<div style="height:20px;"></div><h3>Робочі сесії та години по місяцях</h3><div class="chartbox"><canvas id="chVolume"></canvas></div>' +
-    '<div style="height:20px;"></div><h3>Дохід по місяцях (всі коні)</h3><div class="chartbox"><canvas id="chIncome"></canvas></div></div>';
+    '<div style="height:20px;"></div><h3>Робочі сесії та години по місяцях</h3><div class="chartbox"><canvas id="chVolume"></canvas></div></div>';
   return html;
 }
 
@@ -1202,12 +1370,6 @@ function bindStats(){
     { label:'Сесій', data:cnt, backgroundColor:'#A8C4A2', borderRadius:4 },
     { label:'Годин', data:hrs.map(v => +v.toFixed(1)), backgroundColor:'#D4E8FF', borderRadius:4 },
   ] }, options: base }));
-
-  // 4. дохід
-  const inc = Array(12).fill(0);
-  data.clients.filter(c => c.date.slice(0,4) == y).forEach(c => inc[Number(c.date.slice(5,7))-1] += Number(c.amount)||0);
-  const optI = JSON.parse(JSON.stringify(base)); optI.plugins.legend.display = false;
-  charts.push(new Chart($('#chIncome'), { type:'bar', data:{ labels, datasets:[{ label:'Грн', data:inc, backgroundColor:'#E8C8B8', borderRadius:4 }] }, options: optI }));
 }
 
 /* ---------------- НАЛАШТУВАННЯ ---------------- */
@@ -1386,7 +1548,8 @@ function exportXlsx(){
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sess.length ? sess : [{'Дата':''}]), 'Сесії');
     const cls = data.clients.map(c => ({
       'Дата': c.date, 'Клієнт': c.clientName, 'Тип тренування': c.lessonType || '',
-      'Кінь': (horseById(c.horseId)||{}).name || '', 'Вартість, грн': c.amount || '', 'Нотатки': c.notes || '',
+      'Кінь': (horseById(c.horseId)||{}).name || '', 'Вартість, грн': c.amount || '',
+      'Сплачено': c.paid ? 'так' : '', 'Нотатки': c.notes || '',
     })).sort((a,b) => a['Дата'].localeCompare(b['Дата']));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cls.length ? cls : [{'Дата':''}]), 'Клієнти');
     const evs = data.events.map(e => ({
