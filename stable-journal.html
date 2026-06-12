@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
@@ -129,7 +129,6 @@ h3{font-size:15.5px; font-weight:800; margin-bottom:8px;}
 }
 .pix:hover{transform:scale(1.25); z-index:3; box-shadow:0 2px 8px rgba(61,56,48,.25);}
 .pix.void{visibility:hidden;}
-.pix .ev{position:absolute; top:-3px; right:-3px; width:9px; height:9px; border-radius:50%; background:var(--accent); border:1.5px solid var(--surface);}
 .pix.today{outline:2px solid var(--primary); outline-offset:1px;}
 
 .legend{display:flex; gap:14px; flex-wrap:wrap; margin-top:14px;}
@@ -280,7 +279,7 @@ table.tbl{width:100%; border-collapse:collapse; font-size:14px;}
    Поки Client ID порожній — додаток працює локально (в пам'яті),
    використовуйте експорт/імпорт JSON для збереження.
    ================================================================= */
-const GOOGLE_CLIENT_ID = '124840955192-0lof3dajskuhak9fk1717d6blv91dsa9.apps.googleusercontent.com'; // ← сюди ваш Client ID виду 1234...apps.googleusercontent.com
+const GOOGLE_CLIENT_ID = ''; // ← сюди ваш Client ID виду 1234...apps.googleusercontent.com
 const DRIVE_FILE_NAME = 'stable-journal.json';
 
 /* ---------------- стан ---------------- */
@@ -341,7 +340,7 @@ function defaultData(){
   return {
     horses: [ { id: uid(), name: 'Ольха', color: '#B8A9D4', archived:false, updatedAt: Date.now() } ],
     workTypes: [
-      { id: uid(), name: 'Відпочинок',          color: '#F2E6FF', hidden:false, updatedAt: Date.now() },
+      { id: uid(), name: 'Відпочинок',          color: '#F2E6FF', hidden:false, rest:true, updatedAt: Date.now() },
       { id: uid(), name: 'Робота в руках',      color: '#D4ECD4', hidden:false, updatedAt: Date.now() },
       { id: uid(), name: 'Робота на корді',     color: '#FFE8D4', hidden:false, updatedAt: Date.now() },
       { id: uid(), name: 'Їзда верхи',          color: '#D4E8FF', hidden:false, updatedAt: Date.now() },
@@ -350,12 +349,28 @@ function defaultData(){
     sessions: [], events: [], clients: [],
     settings: {
       places: ['манеж','левада','вулиця','ліс','бочка'],
-      eventCategories: ['вакцинація','розчистка копит','аналізи','охота','інше'],
+      eventCategories: [
+        { name:'вакцинація', color:'#D4E8FF' }, { name:'розчистка копит', color:'#E8C8B8' },
+        { name:'аналізи', color:'#D4ECD4' }, { name:'охота', color:'#F0D4E8' }, { name:'інше', color:'#FFF3C4' },
+      ],
     },
     meta: { updatedAt: Date.now(), deleted: {} },
   };
 }
 
+const EV_COLORS = {'вакцинація':'#D4E8FF','розчистка копит':'#E8C8B8','аналізи':'#D4ECD4','охота':'#F0D4E8','інше':'#FFF3C4'};
+function normalizeData(d){
+  if(!d.meta) d.meta = { updatedAt: Date.now(), deleted: {} };
+  if(!d.meta.deleted) d.meta.deleted = {};
+  if(!d.settings) d.settings = { places: [], eventCategories: [] };
+  d.settings.eventCategories = (d.settings.eventCategories || []).map(c =>
+    typeof c === 'string' ? { name: c, color: EV_COLORS[c] || '#E8C8B8' } : c);
+  (d.workTypes || []).forEach(w => { if(w.rest === undefined) w.rest = /відпочин/i.test(w.name); });
+  return d;
+}
+function catColor(name){
+  return (data.settings.eventCategories.find(c => c.name === name) || {}).color || '#E8C8B8';
+}
 function horse(){ return data.horses.find(h => h.id === ui.horseId); }
 function wt(id){ return data.workTypes.find(w => w.id === id); }
 function horseById(id){ return data.horses.find(h => h.id === id); }
@@ -495,8 +510,7 @@ async function signIn(){
     if(f){
       fileId = f.id;
       const remote = await driveLoad(fileId);
-      data = localHasChanges ? mergeData(data, remote) : remote;
-      if(!data.meta) data.meta = { updatedAt: Date.now(), deleted: {} };
+      data = normalizeData(localHasChanges ? mergeData(data, remote) : remote);
       lastModifiedTime = f.modifiedTime;
       if(localHasChanges){ const u = await driveUpload(fileId, data); lastModifiedTime = u.modifiedTime; }
     } else {
@@ -534,7 +548,7 @@ async function syncSave(){
     const meta = await driveMeta(fileId);
     if(meta.modifiedTime !== lastModifiedTime){
       const remote = await driveLoad(fileId);
-      data = mergeData(data, remote);
+      data = normalizeData(mergeData(data, remote));
       render();
     }
     const r = await driveUpload(fileId, data);
@@ -621,9 +635,17 @@ function viewTracker(){
   let html = '<div class="card"><div class="tr-controls">' +
     '<div class="seg"><button id="modeYear" class="' + (ui.trackerMode==='year'?'active':'') + '">Рік</button>' +
     '<button id="modeMonth" class="' + (ui.trackerMode==='month'?'active':'') + '">Місяць</button></div>' +
-    '<div class="yearnav"><button id="trPrev">‹</button><span id="trLabel">' +
-    (ui.trackerMode==='year' ? y : MONTHS[ui.trackerMonth] + ' ' + y) +
-    '</span><button id="trNext">›</button></div>' +
+    '<div class="yearnav"><button id="trPrev">‹</button>' +
+    (ui.trackerMode==='year'
+      ? '<select id="trYearSel" style="border:1.5px solid var(--border);border-radius:9px;padding:4px 8px;background:#fff;font-weight:800;font-size:15px;font-family:inherit;color:var(--text);">' +
+        (function(){ const cur = new Date().getFullYear();
+          const dys = data.sessions.map(s => Number(s.date.slice(0,4)));
+          const minY = Math.min(cur - 1, ...(dys.length ? dys : [cur]));
+          const maxY = Math.max(cur + 5, ...(dys.length ? dys : [cur]));
+          let o = ''; for(let yy = minY; yy <= maxY; yy++) o += '<option' + (yy === y ? ' selected' : '') + '>' + yy + '</option>';
+          return o; })() + '</select>'
+      : '<span id="trLabel">' + MONTHS[ui.trackerMonth] + ' ' + y + '</span>') +
+    '<button id="trNext">›</button></div>' +
     '<button class="btn small" id="trAdd" style="margin-left:auto;">+ Сесія</button></div>';
 
   if(ui.trackerMode === 'year'){
@@ -637,9 +659,7 @@ function viewTracker(){
         if(d > dim){ html += '<div class="pix void"></div>'; continue; }
         const iso = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
         const sess = sessionsOnDay(ui.horseId, iso);
-        const evs = eventsOnDay(ui.horseId, iso);
-        html += '<div class="pix' + (iso===today?' today':'') + '" data-day="' + iso + '" style="' + pixStyle(sess) + '" title="' + fmtDateShort(iso) + '">' +
-          (evs.length ? '<span class="ev"></span>' : '') + '</div>';
+        html += '<div class="pix' + (iso===today?' today':'') + '" data-day="' + iso + '" style="' + pixStyle(sess) + '" title="' + fmtDateShort(iso) + '"></div>';
       }
     }
     html += '</div></div>';
@@ -655,7 +675,7 @@ function viewTracker(){
       const evs = eventsOnDay(ui.horseId, iso);
       html += '<div class="mcell' + (iso===today?' today':'') + '" data-day="' + iso + '"><span class="dn">' + d + '</span>' +
         '<div class="chips">' + sess.slice(0,3).map(s => '<div class="chip" style="background:' + ((wt(s.workTypeId)||{}).color||'#ddd') + '"></div>').join('') + '</div>' +
-        evs.slice(0,1).map(e => '<span class="evtag">' + esc(e.category) + '</span>').join('') +
+        evs.slice(0,1).map(e => '<span class="evtag" style="background:' + catColor(e.category) + '">' + esc(e.category) + '</span>').join('') +
         '</div>';
     }
     html += '</div>';
@@ -664,7 +684,7 @@ function viewTracker(){
   html += '<div class="legend">' + data.workTypes.filter(w => !w.hidden).map((w,i) =>
     '<div class="li">' + (i < 9 ? '<span class="num">' + (i+1) + '</span>' : '') +
     '<span class="sw" style="background:' + esc(w.color) + '"></span>' + esc(w.name) + '</div>').join('') +
-    '<div class="li"><span class="sw" style="background:var(--accent); border-radius:50%;"></span>важлива подія</div></div>';
+    '</div>';
   html += '<div class="qhint">' + IC.keyboard + 'Швидке введення: наведіть на день і натисніть цифру типу роботи. Повторне натискання прибирає сесію.</div>';
   html += '</div>';
   return html;
@@ -686,6 +706,8 @@ function bindTracker(){
     render();
   };
   $('#trAdd').onclick = () => sessionForm(null, todayISO());
+  const ys = $('#trYearSel');
+  if(ys) ys.onchange = e => { ui.trackerYear = Number(e.target.value); render(); };
   document.querySelectorAll('[data-day]').forEach(el => {
     el.onclick = () => dayPopup(el.dataset.day);
     el.oncontextmenu = e => { e.preventDefault(); ctxMenu(e, el.dataset.day); };
@@ -770,7 +792,7 @@ function dayPopup(iso){
   const evs = eventsOnDay(ui.horseId, iso);
   let html = '<h2>' + fmtDate(iso) + '</h2>';
   if(evs.length){
-    html += evs.map(e => '<div style="background:var(--accent);border-radius:10px;padding:8px 12px;margin-bottom:8px;">' +
+    html += evs.map(e => '<div style="background:' + catColor(e.category) + ';border-radius:10px;padding:8px 12px;margin-bottom:8px;">' +
       '<b>' + esc(e.category) + '</b>' + (e.notes ? ' — ' + esc(e.notes) : '') +
       ' <button class="iconbtn" data-eev="' + e.id + '">' + IC.edit + '</button><button class="iconbtn" data-dev="' + e.id + '">' + IC.trash + '</button></div>').join('');
   }
@@ -880,7 +902,7 @@ function eventForm(id, presetDate){
   const html = '<h2>' + (ev ? 'Редагувати подію' : 'Нова подія') + '</h2>' +
     '<div class="field"><label>Дата</label><input type="date" id="eDate" value="' + (ev ? ev.date : presetDate || todayISO()) + '"></div>' +
     '<div class="field"><label>Категорія</label><select id="eCat">' +
-      cats.map(c => '<option' + (ev && ev.category===c?' selected':'') + '>' + esc(c) + '</option>').join('') + '</select></div>' +
+      cats.map(c => '<option' + (ev && ev.category===c.name?' selected':'') + '>' + esc(c.name) + '</option>').join('') + '</select></div>' +
     '<div class="field"><label>Нотатки</label><textarea id="eNotes">' + esc(ev && ev.notes || '') + '</textarea></div>' +
     '<div class="modal-foot"><button class="btn sec" id="eCancel">Скасувати</button><button class="btn" id="eSave">Зберегти</button></div>';
   const m = showModal(html);
@@ -980,7 +1002,7 @@ function viewEvents(){
   const past = evs.filter(e => e.date < today);
   const item = (e, fut) => '<div class="ev-item' + (fut?' future':'') + '">' +
     '<b style="white-space:nowrap;">' + fmtDate(e.date) + '</b>' +
-    '<span class="ev-cat">' + esc(e.category) + '</span>' +
+    '<span class="ev-cat" style="background:' + catColor(e.category) + '">' + esc(e.category) + '</span>' +
     '<span style="flex:1;">' + esc(e.notes || '') + '</span>' +
     '<span class="sess-actions"><button class="iconbtn" data-eev="' + e.id + '">' + IC.edit + '</button><button class="iconbtn" data-dev="' + e.id + '">' + IC.trash + '</button></span></div>';
   let html = '<div class="card"><div class="row spread"><h2>Події — ' + esc(horse().name) + '</h2>' +
@@ -1105,8 +1127,11 @@ function viewStats(){
   const y = ui.statsYear;
   const years = [...new Set([...data.sessions.map(s => s.date.slice(0,4)), ...data.clients.map(c => c.date.slice(0,4)), String(new Date().getFullYear())])].sort().reverse();
   const sess = sessionsOf(ui.horseId).filter(s => s.date.slice(0,4) == y);
-  const hours = sess.reduce((a,s) => a + (s.duration || 0), 0) / 60;
-  const qVals = sess.filter(s => s.quality).map(s => s.quality);
+  const isRest = s => !!(wt(s.workTypeId) || {}).rest;
+  const work = sess.filter(s => !isRest(s));
+  const restDays = new Set(sess.filter(isRest).map(s => s.date)).size;
+  const hours = work.reduce((a,s) => a + (s.duration || 0), 0) / 60;
+  const qVals = work.filter(s => s.quality).map(s => s.quality);
   const avgQ = qVals.length ? (qVals.reduce((a,b) => a+b,0) / qVals.length).toFixed(1) : '—';
   const income = data.clients.filter(c => c.date.slice(0,4) == y).reduce((a,c) => a + (Number(c.amount)||0), 0);
 
@@ -1114,7 +1139,8 @@ function viewStats(){
     '<select id="stYear" style="border:1.5px solid var(--border);border-radius:9px;padding:5px 9px;background:#fff;font-weight:700;">' +
     years.map(yy => '<option' + (yy == y?' selected':'') + '>' + yy + '</option>').join('') + '</select></div>' +
     '<div class="statcards">' +
-    '<div class="statcard"><div class="v">' + sess.length + '</div><div class="l">сесій за рік</div></div>' +
+    '<div class="statcard"><div class="v">' + work.length + '</div><div class="l">робочих сесій</div></div>' +
+    '<div class="statcard"><div class="v">' + restDays + '</div><div class="l">днів відпочинку</div></div>' +
     '<div class="statcard"><div class="v">' + (hours ? hours.toFixed(1) : '—') + '</div><div class="l">годин роботи</div></div>' +
     '<div class="statcard"><div class="v">' + avgQ + '</div><div class="l">середня якість</div></div>' +
     '<div class="statcard"><div class="v">' + income.toLocaleString('uk-UA') + '</div><div class="l">дохід, грн (всі коні)</div></div>' +
@@ -1126,7 +1152,7 @@ function viewStats(){
   }
   html += '<h3>Типи роботи по місяцях</h3><div class="chartbox"><canvas id="chTypes"></canvas></div>' +
     '<div style="height:20px;"></div><h3>Середня якість по місяцях</h3><div class="chartbox"><canvas id="chQuality"></canvas></div>' +
-    '<div style="height:20px;"></div><h3>Сесії та години по місяцях</h3><div class="chartbox"><canvas id="chVolume"></canvas></div>' +
+    '<div style="height:20px;"></div><h3>Робочі сесії та години по місяцях</h3><div class="chartbox"><canvas id="chVolume"></canvas></div>' +
     '<div style="height:20px;"></div><h3>Дохід по місяцях (всі коні)</h3><div class="chartbox"><canvas id="chIncome"></canvas></div></div>';
   return html;
 }
@@ -1136,8 +1162,14 @@ function bindStats(){
   if(!sel) return;
   sel.onchange = e => { ui.statsYear = Number(e.target.value); render(); };
   if(!$('#chTypes')) return;
+  if(typeof Chart === 'undefined'){
+    document.querySelectorAll('.chartbox').forEach(b =>
+      b.innerHTML = '<p class="muted" style="padding-top:24px;">Не вдалося завантажити бібліотеку графіків. Перевірте з\'єднання з інтернетом та оновіть сторінку.</p>');
+    return;
+  }
   const y = ui.statsYear;
   const sess = sessionsOf(ui.horseId).filter(s => s.date.slice(0,4) == y);
+  const work = sess.filter(s => !(wt(s.workTypeId) || {}).rest);
   const monthIdx = s => Number(s.date.slice(5,7)) - 1;
   const labels = MONTHS.map(m => m.slice(0,3));
   const gridCol = 'rgba(61,56,48,.08)';
@@ -1156,7 +1188,7 @@ function bindStats(){
   // 2. середня якість
   const qArr = Array(12).fill(null);
   for(let m=0; m<12; m++){
-    const v = sess.filter(s => monthIdx(s) === m && s.quality).map(s => s.quality);
+    const v = work.filter(s => monthIdx(s) === m && s.quality).map(s => s.quality);
     if(v.length) qArr[m] = +(v.reduce((a,b) => a+b,0) / v.length).toFixed(2);
   }
   const optQ = JSON.parse(JSON.stringify(base)); optQ.scales.y.min = 0; optQ.scales.y.max = 10; optQ.plugins.legend.display = false;
@@ -1165,7 +1197,7 @@ function bindStats(){
 
   // 3. сесії + години
   const cnt = Array(12).fill(0), hrs = Array(12).fill(0);
-  sess.forEach(s => { cnt[monthIdx(s)]++; hrs[monthIdx(s)] += (s.duration||0)/60; });
+  work.forEach(s => { cnt[monthIdx(s)]++; hrs[monthIdx(s)] += (s.duration||0)/60; });
   charts.push(new Chart($('#chVolume'), { type:'bar', data:{ labels, datasets:[
     { label:'Сесій', data:cnt, backgroundColor:'#A8C4A2', borderRadius:4 },
     { label:'Годин', data:hrs.map(v => +v.toFixed(1)), backgroundColor:'#D4E8FF', borderRadius:4 },
@@ -1195,10 +1227,13 @@ function bindColorPicker(m, id, initial){
   return () => val;
 }
 
-function nameColorForm(title, initial, onSave){
+function nameColorForm(title, initial, onSave, opts){
   const html = '<h2>' + title + '</h2>' +
     '<div class="field"><label>Назва</label><input type="text" id="ncName" value="' + esc(initial.name || '') + '"></div>' +
     '<div class="field"><label>Колір</label>' + colorPicker('ncColor', initial.color) + '</div>' +
+    (opts && opts.checkbox ? '<div class="field"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:14px;color:var(--text);">' +
+      '<input type="checkbox" id="ncChk"' + (opts.checkbox.value ? ' checked' : '') + ' style="width:16px;height:16px;accent-color:var(--primary);">' +
+      opts.checkbox.label + '</label></div>' : '') +
     '<div class="modal-foot"><button class="btn sec" id="ncCancel">Скасувати</button><button class="btn" id="ncSave">Зберегти</button></div>';
   const m = showModal(html);
   const getC = bindColorPicker(m, 'ncColor', initial.color);
@@ -1206,7 +1241,8 @@ function nameColorForm(title, initial, onSave){
   m.querySelector('#ncSave').onclick = () => {
     const name = m.querySelector('#ncName').value.trim();
     if(!name) return toast('Вкажіть назву', 'error');
-    onSave(name, getC()); closeModal();
+    onSave(name, getC(), opts && opts.checkbox ? m.querySelector('#ncChk').checked : undefined);
+    closeModal();
   };
 }
 
@@ -1231,7 +1267,9 @@ function viewSettings(){
 
   html += '<div class="card"><h2>Типи роботи</h2>' +
     data.workTypes.map(w => '<div class="set-item"><span class="dot" style="background:' + esc(w.color) + '"></span>' +
-      '<span class="nm">' + esc(w.name) + '</span>' + (w.hidden ? '<span class="tag">приховано</span>' : '') +
+      '<span class="nm">' + esc(w.name) + '</span>' +
+      (w.rest ? '<span class="tag">відпочинок</span>' : '') +
+      (w.hidden ? '<span class="tag">приховано</span>' : '') +
       '<span class="acts"><button class="iconbtn" data-edw="' + w.id + '">' + IC.edit + '</button>' +
       '<button class="iconbtn" data-hiw="' + w.id + '" title="' + (w.hidden?'показати':'приховати') + '">' + (w.hidden?IC.eye:IC.eyeOff) + '</button></span></div>').join('') +
     '<div style="margin-top:10px;"><button class="btn small sec" id="addWT">+ Додати тип</button></div></div>';
@@ -1244,7 +1282,13 @@ function viewSettings(){
     '<button class="btn small sec" id="' + addId + 'Btn">Додати</button></div></div>';
 
   html += listEditor('Місця', data.settings.places, 'addPlace', 'delp');
-  html += listEditor('Категорії подій', data.settings.eventCategories, 'addCat', 'delc');
+
+  html += '<div class="card"><h2>Категорії подій</h2>' +
+    data.settings.eventCategories.map((c,i) => '<div class="set-item"><span class="dot" style="background:' + esc(c.color) + '"></span>' +
+      '<span class="nm">' + esc(c.name) + '</span>' +
+      '<span class="acts"><button class="iconbtn" data-edc="' + i + '">' + IC.edit + '</button>' +
+      '<button class="iconbtn" data-delc="' + i + '">' + IC.trash + '</button></span></div>').join('') +
+    '<div style="margin-top:10px;"><button class="btn small sec" id="addCat">+ Додати категорію</button></div></div>';
 
   html += '<div class="card"><h2>Дані</h2><div class="row">' +
     '<button class="btn sec" id="expXlsx">' + IC.download + 'Експорт у Excel</button>' +
@@ -1285,16 +1329,16 @@ function bindSettings(){
     if(!h.archived && !ui.horseId) ui.horseId = h.id;
     markDirty(); render();
   });
-  $('#addWT').onclick = () => nameColorForm('Новий тип роботи', {color:PASTELS[5]}, (name, color) => {
-    data.workTypes.push({ id: uid(), name, color, hidden:false, updatedAt: Date.now() });
+  $('#addWT').onclick = () => nameColorForm('Новий тип роботи', {color:PASTELS[5]}, (name, color, rest) => {
+    data.workTypes.push({ id: uid(), name, color, hidden:false, rest:!!rest, updatedAt: Date.now() });
     markDirty(); render(); toast('Тип додано', 'ok');
-  });
+  }, { checkbox: { label:'Відпочинок — не рахувати як робочу сесію в статистиці', value:false } });
   document.querySelectorAll('[data-edw]').forEach(b => b.onclick = () => {
     const w = wt(b.dataset.edw);
-    nameColorForm('Редагувати тип', w, (name, color) => {
-      w.name = name; w.color = color; w.updatedAt = Date.now();
+    nameColorForm('Редагувати тип', w, (name, color, rest) => {
+      w.name = name; w.color = color; w.rest = !!rest; w.updatedAt = Date.now();
       markDirty(); render(); toast('Збережено', 'ok');
-    });
+    }, { checkbox: { label:'Відпочинок — не рахувати як робочу сесію в статистиці', value:!!w.rest } });
   });
   document.querySelectorAll('[data-hiw]').forEach(b => b.onclick = () => {
     const w = wt(b.dataset.hiw); w.hidden = !w.hidden; w.updatedAt = Date.now();
@@ -1304,10 +1348,20 @@ function bindSettings(){
     const v = $('#addPlaceInp').value.trim();
     if(v && !data.settings.places.includes(v)){ data.settings.places.push(v); markDirty(); render(); }
   };
-  $('#addCatBtn').onclick = () => {
-    const v = $('#addCatInp').value.trim();
-    if(v && !data.settings.eventCategories.includes(v)){ data.settings.eventCategories.push(v); markDirty(); render(); }
-  };
+  $('#addCat').onclick = () => nameColorForm('Нова категорія подій', {color:'#FFE8D4'}, (name, color) => {
+    if(data.settings.eventCategories.some(c => c.name === name)) return toast('Така категорія вже є', 'error');
+    data.settings.eventCategories.push({ name, color });
+    markDirty(); render(); toast('Категорію додано', 'ok');
+  });
+  document.querySelectorAll('[data-edc]').forEach(b => b.onclick = () => {
+    const i = Number(b.dataset.edc), c = data.settings.eventCategories[i];
+    nameColorForm('Редагувати категорію', c, (name, color) => {
+      const oldName = c.name;
+      c.name = name; c.color = color;
+      if(oldName !== name) data.events.forEach(e => { if(e.category === oldName){ e.category = name; e.updatedAt = Date.now(); } });
+      markDirty(); render(); toast('Збережено', 'ok');
+    });
+  });
   document.querySelectorAll('[data-delp]').forEach(b => b.onclick = () => confirmModal('Видалити це місце зі списку? Записи з ним залишаться.', () => {
     data.settings.places.splice(Number(b.dataset.delp), 1); markDirty(); render();
   }));
@@ -1369,7 +1423,7 @@ function importJson(e){
       '<button class="btn sec" id="iReplace">Замінити</button><button class="btn" id="iMerge">Злити</button></div>');
     m.querySelector('#iCancel').onclick = closeModal;
     const finish = () => {
-      if(!data.meta) data.meta = { updatedAt: Date.now(), deleted: {} };
+      data = normalizeData(data);
       if(!activeHorses().find(h => h.id === ui.horseId)) ui.horseId = (activeHorses()[0] || {}).id || null;
       markDirty(); closeModal(); render(); toast('Дані імпортовано', 'ok');
     };
@@ -1382,12 +1436,14 @@ function importJson(e){
 
 /* ---------------- bind + старт ---------------- */
 function bindView(){
-  bindTracker(); bindJournal(); bindEvents(); bindClients(); bindStats(); bindSettings();
+  [bindTracker, bindJournal, bindEvents, bindClients, bindStats, bindSettings].forEach(fn => {
+    try{ fn(); } catch(e){ console.error('bind error:', fn.name, e); }
+  });
 }
 
 document.addEventListener('keydown', e => { if(e.key === 'Escape'){ closeModal(); closeCtx(); } });
 
-data = defaultData();
+data = normalizeData(defaultData());
 ui.horseId = data.horses[0].id;
 initAuth();
 render();
