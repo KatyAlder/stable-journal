@@ -387,6 +387,7 @@ function defaultData(){
         { name:'вакцинація', color:'#D4E8FF' }, { name:'розчистка копит', color:'#E8C8B8' },
         { name:'аналізи', color:'#D4ECD4' }, { name:'охота', color:'#F0D4E8' }, { name:'інше', color:'#FFF3C4' },
       ],
+      clientNames: [],
     },
     meta: { updatedAt: Date.now(), deleted: {} },
   };
@@ -402,6 +403,11 @@ function normalizeData(d){
   (d.workTypes || []).forEach(w => { if(w.rest === undefined) w.rest = /відпочин/i.test(w.name); });
   (d.clients || []).forEach(c => { if(c.paid === undefined) c.paid = false; });
   if(d.settings.note === undefined) d.settings.note = '';
+  if(!Array.isArray(d.settings.clientNames)) d.settings.clientNames = [];
+  // підхопити всі імена з наявних записів у реєстр
+  for(const c of (d.clients || [])){
+    if(c.clientName && !d.settings.clientNames.includes(c.clientName)) d.settings.clientNames.push(c.clientName);
+  }
   return d;
 }
 function catColor(name){
@@ -1151,7 +1157,13 @@ function bindEvents(){
 }
 
 /* ---------------- КЛІЄНТИ ---------------- */
-function clientNames(){ return [...new Set(data.clients.map(c => c.clientName).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'uk')); }
+function clientNames(){
+  return [...new Set([
+    ...data.clients.map(c => c.clientName).filter(Boolean),
+    ...(data.settings.clientNames || []),
+  ])].sort((a,b)=>a.localeCompare(b,'uk'));
+}
+function clientHasSessions(name){ return data.clients.some(c => c.clientName === name); }
 
 function viewClients(){
   const head = '<div class="card"><div class="row spread"><h2>Клієнти</h2>' +
@@ -1171,6 +1183,7 @@ function viewClients(){
   }).sort((a,b) => b.date.localeCompare(a.date));
   const total = list.reduce((s,c) => s + (Number(c.amount) || 0), 0);
   const paidTotal = list.reduce((s,c) => s + (c.paid ? (Number(c.amount) || 0) : 0), 0);
+  const unpaidTotal = total - paidTotal;
   const months = [...new Set(data.clients.map(c => c.date.slice(0,7)))].sort().reverse();
 
   let html = head +
@@ -1182,7 +1195,8 @@ function viewClients(){
       data.horses.map(h => '<option value="' + h.id + '"' + (f.horse===h.id?' selected':'') + '>' + esc(h.name) + (h.clientOnly ? ' (кл.)' : '') + '</option>').join('') + '</select></div></div>' +
     '<div class="sum-banner">Разом за період: <span style="font-size:19px;">' + total.toLocaleString('uk-UA') + ' грн</span>' +
       '<span class="muted">(' + list.length + ' трен.)</span>' +
-      '<span class="muted" style="margin-left:auto;font-weight:700;">сплачено: ' + paidTotal.toLocaleString('uk-UA') + ' грн</span></div>';
+      '<span class="muted" style="margin-left:auto;font-weight:700;">сплачено: ' + paidTotal.toLocaleString('uk-UA') + ' грн</span>' +
+      '<span class="muted" style="font-weight:700;' + (unpaidTotal > 0 ? 'color:var(--danger);' : '') + '">не сплачено: ' + unpaidTotal.toLocaleString('uk-UA') + ' грн</span></div>';
 
   if(!list.length) html += '<p class="muted">Тренувань за цими фільтрами немає.</p>';
   else {
@@ -1253,9 +1267,17 @@ function clientForm(id, copyFromId){
   const curName = src ? (src.clientName || '') : '';
   const html = '<h2>' + (c ? 'Редагувати тренування' : (isCopy ? 'Копія тренування' : 'Нове тренування')) + '</h2>' +
     '<div class="field"><label>Дата</label><input type="date" id="cDate" value="' + (c ? c.date : todayISO()) + '"></div>' +
-    '<div class="field"><label>Ім\'я клієнта</label><select id="cNameSel"><option value="">—</option>' +
-      names.map(n => '<option' + (curName===n?' selected':'') + '>' + esc(n) + '</option>').join('') +
-      '<option value="__new__">+ нове ім\'я…</option></select></div>' +
+    '<div class="field"><label>Ім\'я клієнта</label>' +
+      '<div style="display:flex;gap:6px;align-items:center;">' +
+      '<select id="cNameSel" style="flex:1;min-width:0;"><option value="">—</option>' +
+        names.map(n => '<option' + (curName===n?' selected':'') + '>' + esc(n) + '</option>').join('') +
+        '<option value="__new__">+ нове ім\'я…</option></select>' +
+      '<button type="button" class="iconbtn" id="cNamesManage" title="Керувати іменами">' + IC.edit + '</button>' +
+      '</div></div>' +
+    '<div class="field" id="cNamesPanelWrap" style="display:none;">' +
+      '<div style="border:1.5px solid var(--border);border-radius:10px;padding:8px 10px;background:#fff;max-height:180px;overflow-y:auto;">' +
+      '<p class="muted" style="margin-bottom:6px;">Прибрати можна лише ім\'я без жодного тренування.</p>' +
+      '<div id="cNamesList"></div></div></div>' +
     '<div class="field" id="cNewNameWrap" style="display:none;"><label>Нове ім\'я клієнта</label><input type="text" id="cNewName"></div>' +
     '<div class="field"><label>Тип тренування</label><input type="text" id="cType" value="' + esc(src && src.lessonType || '') + '" placeholder="напр., манежне, виїзд у ліс…"></div>' +
     '<div class="field"><label>Кінь</label><select id="cHorse"><option value="">—</option>' +
@@ -1272,6 +1294,45 @@ function clientForm(id, copyFromId){
   m.querySelector('#cNameSel').onchange = e => {
     m.querySelector('#cNewNameWrap').style.display = e.target.value === '__new__' ? '' : 'none';
   };
+
+  // --- керування переліком імен клієнтів ---
+  const refreshNameSelect = () => {
+    const sel = m.querySelector('#cNameSel');
+    const chosen = sel.value;
+    const opts = clientNames();
+    sel.innerHTML = '<option value="">—</option>' +
+      opts.map(n => '<option' + (chosen === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') +
+      '<option value="__new__">+ нове ім\'я…</option>';
+  };
+  const renderNamesList = () => {
+    const wrap = m.querySelector('#cNamesList');
+    const opts = clientNames();
+    if(!opts.length){ wrap.innerHTML = '<p class="muted">Імен поки немає.</p>'; return; }
+    wrap.innerHTML = opts.map(n => {
+      const used = clientHasSessions(n);
+      return '<div class="set-item" style="padding:5px 2px;">' +
+        '<span class="nm">' + esc(n) + '</span>' +
+        (used ? '<span class="tag">є тренування</span>' : '') +
+        '<span class="acts">' +
+        (used ? '' : '<button type="button" class="iconbtn" data-delname="' + esc(n) + '" title="Прибрати ім\'я">' + IC.trash + '</button>') +
+        '</span></div>';
+    }).join('');
+    wrap.querySelectorAll('[data-delname]').forEach(b => b.onclick = () => {
+      const nm = b.dataset.delname;
+      data.settings.clientNames = (data.settings.clientNames || []).filter(x => x !== nm);
+      markDirty();
+      renderNamesList();
+      refreshNameSelect();
+      toast('Ім\'я «' + nm + '» прибрано');
+    });
+  };
+  m.querySelector('#cNamesManage').onclick = () => {
+    const w = m.querySelector('#cNamesPanelWrap');
+    const show = w.style.display === 'none';
+    w.style.display = show ? '' : 'none';
+    if(show) renderNamesList();
+  };
+
   m.querySelector('#cHorse').onchange = e => {
     m.querySelector('#cNewHorseWrap').style.display = e.target.value === '__new__' ? '' : 'none';
   };
@@ -1282,6 +1343,7 @@ function clientForm(id, copyFromId){
     if(name === '__new__') name = m.querySelector('#cNewName').value;
     name = (name || '').trim();
     if(!date || !name) return toast('Вкажіть дату та ім\'я', 'error');
+    if(!data.settings.clientNames.includes(name)) data.settings.clientNames.push(name);
     let horseId = m.querySelector('#cHorse').value || null;
     if(horseId === '__new__'){
       const hn = m.querySelector('#cNewHorse').value.trim();
