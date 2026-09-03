@@ -388,6 +388,7 @@ function defaultData(){
         { name:'аналізи', color:'#D4ECD4' }, { name:'охота', color:'#F0D4E8' }, { name:'інше', color:'#FFF3C4' },
       ],
       clientNames: [],
+      archivedClients: [],
     },
     meta: { updatedAt: Date.now(), deleted: {} },
   };
@@ -404,6 +405,7 @@ function normalizeData(d){
   (d.clients || []).forEach(c => { if(c.paid === undefined) c.paid = false; });
   if(d.settings.note === undefined) d.settings.note = '';
   if(!Array.isArray(d.settings.clientNames)) d.settings.clientNames = [];
+  if(!Array.isArray(d.settings.archivedClients)) d.settings.archivedClients = [];
   // підхопити всі імена з наявних записів у реєстр
   for(const c of (d.clients || [])){
     if(c.clientName && !d.settings.clientNames.includes(c.clientName)) d.settings.clientNames.push(c.clientName);
@@ -1164,6 +1166,7 @@ function clientNames(){
   ])].sort((a,b)=>a.localeCompare(b,'uk'));
 }
 function clientHasSessions(name){ return data.clients.some(c => c.clientName === name); }
+function clientArchived(name){ return (data.settings.archivedClients || []).includes(name); }
 
 function viewClients(){
   const head = '<div class="card"><div class="row spread"><h2>Клієнти</h2>' +
@@ -1263,8 +1266,9 @@ function clientForm(id, copyFromId){
   const c = id ? data.clients.find(x => x.id === id) : null;
   const src = c || (copyFromId ? data.clients.find(x => x.id === copyFromId) : null);
   const isCopy = !id && !!copyFromId;
-  const names = clientNames();
   const curName = src ? (src.clientName || '') : '';
+  // приховані клієнти не показуються у випадачці (крім того, чиє тренування редагуємо)
+  const names = clientNames().filter(n => !clientArchived(n) || n === curName);
   const html = '<h2>' + (c ? 'Редагувати тренування' : (isCopy ? 'Копія тренування' : 'Нове тренування')) + '</h2>' +
     '<div class="field"><label>Дата</label><input type="date" id="cDate" value="' + (c ? c.date : todayISO()) + '"></div>' +
     '<div class="field"><label>Ім\'я клієнта</label>' +
@@ -1275,8 +1279,8 @@ function clientForm(id, copyFromId){
       '<button type="button" class="iconbtn" id="cNamesManage" title="Керувати іменами">' + IC.edit + '</button>' +
       '</div></div>' +
     '<div class="field" id="cNamesPanelWrap" style="display:none;">' +
-      '<div style="border:1.5px solid var(--border);border-radius:10px;padding:8px 10px;background:#fff;max-height:180px;overflow-y:auto;">' +
-      '<p class="muted" style="margin-bottom:6px;">Прибрати можна лише ім\'я без жодного тренування.</p>' +
+      '<div style="border:1.5px solid var(--border);border-radius:10px;padding:8px 10px;background:#fff;max-height:200px;overflow-y:auto;">' +
+      '<p class="muted" style="margin-bottom:6px;">Приховані імена не показуються у випадачці — історія їхніх тренувань лишається. Видалити зовсім можна лише ім\'я без жодного тренування.</p>' +
       '<div id="cNamesList"></div></div></div>' +
     '<div class="field" id="cNewNameWrap" style="display:none;"><label>Нове ім\'я клієнта</label><input type="text" id="cNewName"></div>' +
     '<div class="field"><label>Тип тренування</label><input type="text" id="cType" value="' + esc(src && src.lessonType || '') + '" placeholder="напр., манежне, виїзд у ліс…"></div>' +
@@ -1299,7 +1303,7 @@ function clientForm(id, copyFromId){
   const refreshNameSelect = () => {
     const sel = m.querySelector('#cNameSel');
     const chosen = sel.value;
-    const opts = clientNames();
+    const opts = clientNames().filter(n => !clientArchived(n) || n === chosen || n === curName);
     sel.innerHTML = '<option value="">—</option>' +
       opts.map(n => '<option' + (chosen === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') +
       '<option value="__new__">+ нове ім\'я…</option>';
@@ -1310,20 +1314,33 @@ function clientForm(id, copyFromId){
     if(!opts.length){ wrap.innerHTML = '<p class="muted">Імен поки немає.</p>'; return; }
     wrap.innerHTML = opts.map(n => {
       const used = clientHasSessions(n);
+      const arch = clientArchived(n);
       return '<div class="set-item" style="padding:5px 2px;">' +
-        '<span class="nm">' + esc(n) + '</span>' +
-        (used ? '<span class="tag">є тренування</span>' : '') +
+        '<span class="nm"' + (arch ? ' style="color:var(--text-soft);"' : '') + '>' + esc(n) + '</span>' +
+        (arch ? '<span class="tag">приховано</span>' : '') +
         '<span class="acts">' +
-        (used ? '' : '<button type="button" class="iconbtn" data-delname="' + esc(n) + '" title="Прибрати ім\'я">' + IC.trash + '</button>') +
+        '<button type="button" class="iconbtn" data-arcname="' + esc(n) + '" title="' + (arch ? 'Повернути у випадачку' : 'Прибрати з випадачки') + '">' + (arch ? IC.eye : IC.eyeOff) + '</button>' +
+        (used ? '' : '<button type="button" class="iconbtn" data-delname="' + esc(n) + '" title="Видалити ім\'я (немає тренувань)">' + IC.trash + '</button>') +
         '</span></div>';
     }).join('');
-    wrap.querySelectorAll('[data-delname]').forEach(b => b.onclick = () => {
-      const nm = b.dataset.delname;
-      data.settings.clientNames = (data.settings.clientNames || []).filter(x => x !== nm);
+    wrap.querySelectorAll('[data-arcname]').forEach(b => b.onclick = () => {
+      const nm = b.dataset.arcname;
+      const arr = data.settings.archivedClients || (data.settings.archivedClients = []);
+      if(arr.includes(nm)) data.settings.archivedClients = arr.filter(x => x !== nm);
+      else arr.push(nm);
       markDirty();
       renderNamesList();
       refreshNameSelect();
-      toast('Ім\'я «' + nm + '» прибрано');
+      toast('«' + nm + '» ' + (clientArchived(nm) ? 'приховано' : 'повернено'));
+    });
+    wrap.querySelectorAll('[data-delname]').forEach(b => b.onclick = () => {
+      const nm = b.dataset.delname;
+      data.settings.clientNames = (data.settings.clientNames || []).filter(x => x !== nm);
+      data.settings.archivedClients = (data.settings.archivedClients || []).filter(x => x !== nm);
+      markDirty();
+      renderNamesList();
+      refreshNameSelect();
+      toast('Ім\'я «' + nm + '» видалено');
     });
   };
   m.querySelector('#cNamesManage').onclick = () => {
@@ -1344,6 +1361,8 @@ function clientForm(id, copyFromId){
     name = (name || '').trim();
     if(!date || !name) return toast('Вкажіть дату та ім\'я', 'error');
     if(!data.settings.clientNames.includes(name)) data.settings.clientNames.push(name);
+    // якщо записуємо тренування на приховане ім'я — повертаємо його у випадачку
+    data.settings.archivedClients = (data.settings.archivedClients || []).filter(x => x !== name);
     let horseId = m.querySelector('#cHorse').value || null;
     if(horseId === '__new__'){
       const hn = m.querySelector('#cNewHorse').value.trim();
