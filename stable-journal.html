@@ -316,7 +316,7 @@ let data = null;            // основні дані
 let mode = 'local';         // 'local' | 'drive'
 let fileId = null;
 let lastModifiedTime = null;
-let accessToken = null, tokenExpiry = 0, tokenClient = null;
+let accessToken = null, tokenExpiry = 0, tokenClient = null, tokenErrCb = null;
 let saveTimer = null, isSaving = false;
 let charts = [];
 
@@ -437,6 +437,30 @@ function setSync(cls, text){
 /* ---------------- Google Drive ---------------- */
 function gisReady(){ return !!(window.google && google.accounts && google.accounts.oauth2); }
 
+/* прапорець «користувач увійшов» + кеш токена (drive.file, живе ~1 год) */
+const AUTH_LS_KEY = 'stable-journal-auth-v1';
+function saveAuthState(){
+  try{
+    localStorage.setItem(AUTH_LS_KEY, JSON.stringify({
+      signedIn: true, token: accessToken || null, expiry: tokenExpiry || 0,
+    }));
+  }catch(e){}
+}
+function clearAuthState(){ try{ localStorage.removeItem(AUTH_LS_KEY); }catch(e){} }
+function readAuthState(){
+  try{ return JSON.parse(localStorage.getItem(AUTH_LS_KEY) || 'null'); }
+  catch(e){ return null; }
+}
+
+function showSignInButton(){
+  const btn = $('#authBtn');
+  btn.style.display = ''; btn.textContent = 'Увійти через Google'; btn.onclick = signIn;
+}
+function showSignOutButton(){
+  const btn = $('#authBtn');
+  btn.style.display = ''; btn.textContent = 'Вийти'; btn.onclick = signOut;
+}
+
 function initAuth(){
   if(!GOOGLE_CLIENT_ID){ setSync('local','локально'); return; }
   const tryInit = () => {
@@ -445,33 +469,47 @@ function initAuth(){
       client_id: GOOGLE_CLIENT_ID,
       scope: 'https://www.googleapis.com/auth/drive.file',
       callback: () => {},
+      error_callback: e => { if(tokenErrCb) tokenErrCb(e); },
     });
-    const btn = $('#authBtn');
-    btn.style.display = '';
-    btn.textContent = 'Увійти через Google';
-    btn.onclick = signIn;
+    const saved = readAuthState();
+    if(saved && saved.signedIn){
+      // п.4 — ще чинний збережений токен переживає оновлення сторінки
+      if(saved.token && saved.expiry && Date.now() < saved.expiry){
+        accessToken = saved.token; tokenExpiry = saved.expiry;
+      }
+      bootstrapDrive();               // п.2 — тихе підключення без UI
+    } else {
+      showSignInButton();
+    }
   };
   tryInit();
 }
 
-function getToken(interactive){
+/* п.3 — завжди prompt:'' . Перший раз на пристрої Google все одно покаже
+   вибір акаунта / згоду; далі проходить наскрізь без діалогу. */
+function getToken(){
   return new Promise((resolve, reject) => {
     if(!tokenClient) return reject(new Error('GIS не завантажено'));
+    let done = false;
+    const settle = fn => (...a) => { if(done) return; done = true; tokenErrCb = null; fn(...a); };
+    const ok = settle(resolve), bad = settle(reject);
     tokenClient.callback = resp => {
-      if(resp.error) return reject(resp);
+      if(resp && resp.error) return bad(resp);
       accessToken = resp.access_token;
       tokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
-      resolve(accessToken);
+      saveAuthState();
+      ok(accessToken);
     };
-    try{ tokenClient.requestAccessToken({ prompt: interactive ? 'consent' : '' }); }
-    catch(e){ reject(e); }
+    tokenErrCb = bad;
+    setTimeout(() => bad(new Error('Час очікування входу вичерпано')), 30000);
+    try{ tokenClient.requestAccessToken({ prompt: '' }); }
+    catch(e){ bad(e); }
   });
 }
 
 async function ensureToken(){
   if(accessToken && Date.now() < tokenExpiry) return accessToken;
-  try{ return await getToken(false); }
-  catch(e){ return await getToken(true); }
+  return await getToken();
 }
 
 async function dFetch(url, opts = {}){
@@ -537,29 +575,37 @@ function mergeData(local, remote){
   return out;
 }
 
+/* спільне ядро: здобути токен (за потреби) + знайти/злити/створити файл Drive.
+   silent=true — без діалогів і без тостів помилок (для тихого старту). */
+async function connectDrive(silent){
+  setSync('saving', silent ? 'підключення…' : 'вхід…');
+  if(!(accessToken && Date.now() < tokenExpiry)){
+    await getToken();                 // п.3 — одна спроба prompt:''; кине помилку, якщо тихо не вийшло
+  }
+  const f = await driveFind();
+  const localHasChanges = data.sessions.length || data.events.length || data.clients.length;
+  if(f){
+    fileId = f.id;
+    const remote = await driveLoad(fileId);
+    data = normalizeData(localHasChanges ? mergeData(data, remote) : remote);
+    lastModifiedTime = f.modifiedTime;
+    if(localHasChanges){ const u = await driveUpload(fileId, data); lastModifiedTime = u.modifiedTime; }
+  } else {
+    const created = await driveCreate(data);
+    fileId = created.id; lastModifiedTime = created.modifiedTime;
+  }
+  mode = 'drive';
+  if(!activeHorses().find(h => h.id === ui.horseId)) ui.horseId = (activeHorses()[0] || {}).id || null;
+  showSignOutButton();
+  saveAuthState();                    // п.1 — фіксуємо «увійшов»
+  setSync('ok','збережено');
+  render();
+}
+
 async function signIn(){
   try{
-    setSync('saving','вхід…');
-    await getToken(true);
-    let f = await driveFind();
-    const localHasChanges = data.sessions.length || data.events.length || data.clients.length;
-    if(f){
-      fileId = f.id;
-      const remote = await driveLoad(fileId);
-      data = normalizeData(localHasChanges ? mergeData(data, remote) : remote);
-      lastModifiedTime = f.modifiedTime;
-      if(localHasChanges){ const u = await driveUpload(fileId, data); lastModifiedTime = u.modifiedTime; }
-    } else {
-      const created = await driveCreate(data);
-      fileId = created.id; lastModifiedTime = created.modifiedTime;
-    }
-    mode = 'drive';
-    if(!activeHorses().find(h => h.id === ui.horseId)) ui.horseId = (activeHorses()[0] || {}).id || null;
-    $('#authBtn').textContent = 'Вийти';
-    $('#authBtn').onclick = signOut;
-    setSync('ok','збережено');
+    await connectDrive(false);
     toast('Дані синхронізовано з Google Drive', 'ok');
-    render();
   } catch(e){
     console.error(e);
     setSync('error','помилка');
@@ -567,11 +613,33 @@ async function signIn(){
   }
 }
 
+/* п.2 — тихий bootstrap при старті, якщо стоїть прапорець */
+async function bootstrapDrive(){
+  try{
+    await connectDrive(true);
+    return;
+  } catch(e){
+    // можливо, кешований токен уже недійсний — одна тиха спроба оновити
+    accessToken = null; tokenExpiry = 0;
+    try{
+      await getToken();
+      await connectDrive(true);
+      return;
+    } catch(e2){
+      console.warn('Тихий вхід не вдався, потрібен ручний:', e2);
+      accessToken = null; tokenExpiry = 0;
+      clearAuthState();
+      showSignInButton();
+      setSync('local','локально');
+    }
+  }
+}
+
 function signOut(){
   if(accessToken && gisReady()) google.accounts.oauth2.revoke(accessToken, () => {});
   accessToken = null; tokenExpiry = 0; mode = 'local'; fileId = null;
-  $('#authBtn').textContent = 'Увійти через Google';
-  $('#authBtn').onclick = signIn;
+  clearAuthState();
+  showSignInButton();
   setSync('local','локально');
   toast('Ви вийшли. Зміни далі — лише локально.');
 }
