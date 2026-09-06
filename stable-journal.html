@@ -460,6 +460,38 @@ function readAuthState(){
   catch(e){ return null; }
 }
 
+/* сесія Google протухла достроково (відкликаний токен, вихід в іншій вкладці,
+   зміна пароля, відкликання доступу застосунку) — потрібен видимий перевхід */
+class AuthExpiredError extends Error {
+  constructor(msg){
+    super(msg || 'Сесія Google протухла — потрібен повторний вхід');
+    this.name = 'AuthExpiredError';
+  }
+}
+
+/* скинути access-token і в пам'яті, і в localStorage,
+   але зберегти прапорець «користувач входив» */
+function invalidateAccessToken(){
+  accessToken = null; tokenExpiry = 0;
+  const saved = readAuthState();
+  if(saved){
+    delete saved.token; delete saved.expiry;
+    try{ localStorage.setItem(AUTH_LS_KEY, JSON.stringify(saved)); }catch(e){}
+  }
+}
+
+/* єдина реакція на AuthExpiredError: без повторів, чисто просимо перевхід */
+function handleAuthExpired(){
+  invalidateAccessToken();
+  clearTimeout(saveTimer);
+  fileId = null;
+  lastModifiedTime = null;
+  mode = 'local';
+  showSignInButton();
+  setSync('local','потрібен вхід');
+  toast('Сесія Google протухла — увійдіть знову.', 'error');
+}
+
 function showSignInButton(){
   const btn = $('#authBtn');
   btn.style.display = ''; btn.textContent = 'Увійти через Google'; btn.onclick = signIn;
@@ -515,15 +547,23 @@ function getToken(){
   });
 }
 
-async function ensureToken(){
-  if(accessToken && Date.now() < tokenExpiry) return accessToken;
-  return await getToken();
+async function ensureToken(forceRefresh = false){
+  if(!forceRefresh && accessToken && Date.now() < tokenExpiry) return accessToken;
+  return await getToken();               // тихо (prompt:''), кине помилку, якщо без UI не вийшло
 }
 
-async function dFetch(url, opts = {}){
+async function dFetch(url, opts = {}, retried = false){
   const tok = await ensureToken();
-  opts.headers = Object.assign({}, opts.headers, { 'Authorization': 'Bearer ' + tok });
-  const r = await fetch(url, opts);
+  const headers = Object.assign({}, opts.headers, { 'Authorization': 'Bearer ' + tok });
+  const r = await fetch(url, Object.assign({}, opts, { headers }));
+  if(r.status === 401){
+    // токен міг бути відкликаний достроково — одна тиха спроба зі свіжим токеном
+    if(retried) throw new AuthExpiredError('Google Drive повернув 401 навіть зі свіжим токеном');
+    invalidateAccessToken();
+    try{ await ensureToken(true); }
+    catch(e){ throw new AuthExpiredError('Не вдалося тихо оновити токен Google'); }
+    return dFetch(url, opts, true);
+  }
   if(!r.ok) throw new Error('Drive API: ' + r.status);
   return r;
 }
@@ -615,6 +655,7 @@ async function signIn(){
     await connectDrive(false);
     toast('Дані синхронізовано з Google Drive', 'ok');
   } catch(e){
+    if(e instanceof AuthExpiredError){ handleAuthExpired(); return; }
     console.error(e);
     setSync('error','помилка');
     toast('Не вдалося увійти. Перевірте Client ID і дозволений origin.', 'error');
@@ -627,15 +668,17 @@ async function bootstrapDrive(){
     await connectDrive(true);
     return;
   } catch(e){
+    if(e instanceof AuthExpiredError){ handleAuthExpired(); return; }
     // можливо, кешований токен уже недійсний — одна тиха спроба оновити
-    accessToken = null; tokenExpiry = 0;
+    invalidateAccessToken();
     try{
       await getToken();
       await connectDrive(true);
       return;
     } catch(e2){
+      if(e2 instanceof AuthExpiredError){ handleAuthExpired(); return; }
       console.warn('Тихий вхід не вдався, потрібен ручний:', e2);
-      accessToken = null; tokenExpiry = 0;
+      invalidateAccessToken();
       clearAuthState();
       showSignInButton();
       setSync('local','локально');
@@ -667,6 +710,7 @@ async function syncSave(){
     lastModifiedTime = r.modifiedTime;
     setSync('ok','збережено');
   } catch(e){
+    if(e instanceof AuthExpiredError){ handleAuthExpired(); return; }
     console.error(e);
     setSync('error','не збережено');
     toast('Помилка синхронізації. Повторю за 10 с.', 'error');
