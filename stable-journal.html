@@ -199,6 +199,7 @@ h3{font-size:15.5px; font-weight:800; margin-bottom:8px;}
 .pchip.ev{border-style:dashed; border-color:rgba(61,56,48,.35);}
 .pchip.done{opacity:.55;}
 .pchip .tm{font-weight:800; margin-right:3px;}
+.pchip .pd{display:inline-block; max-width:100%; vertical-align:top;}
 .pdots{display:none; flex-wrap:wrap; gap:3px; margin-top:4px;}
 .pdot{width:9px; height:9px; border-radius:50%; border:1px solid rgba(61,56,48,.2);}
 .pdot.done{opacity:.4;}
@@ -478,6 +479,7 @@ function normalizeData(d){
   (d.clients || []).forEach(c => { if(c.paid === undefined) c.paid = false; });
   if(d.settings.note === undefined) d.settings.note = '';
   if(!d.settings.clientPlanColor) d.settings.clientPlanColor = '#F4D9A6';
+  if(d.settings.gcalCalendarId === undefined) d.settings.gcalCalendarId = '';
   if(!Array.isArray(d.plans)) d.plans = [];
   if(!Array.isArray(d.weather)) d.weather = [];
   d.weather.forEach(w => { if(w.type === 'away'){ w.type = null; w.away = true; } });
@@ -1755,7 +1757,7 @@ function viewSettings(){
   html += '<div class="card"><h2>Календар планування</h2>' +
     '<div class="field"><label>Колір тренувань клієнтів у календарі «Місяць»</label>' +
     colorPicker('planClientColor', data.settings.clientPlanColor) + '</div>' +
-    '<p class="muted">Плани для коней фарбуються в колір коня, як у шапці застосунку.</p></div>';
+    '<p class="muted">Плани для коней фарбуються в колір коня, як у шапці застосунку. Імпорт у Google Календар — кнопка «Google Календар» у розділі «Місяць».</p></div>';
 
   html += '<div class="card"><h2>Дані</h2><div class="row">' +
     '<button class="btn sec" id="expXlsx">' + IC.download + 'Експорт у Excel</button>' +
@@ -1867,6 +1869,8 @@ const dateOf = iso => { const [y,m,d] = iso.split('-').map(Number); return new D
 const addDays = (iso, n) => { const dt = dateOf(iso); dt.setDate(dt.getDate() + n); return isoOf(dt.getFullYear(), dt.getMonth(), dt.getDate()); };
 const diffDays = (a, b) => Math.round((dateOf(a) - dateOf(b)) / 86400000);
 const weekStart = iso => addDays(iso, -((dateOf(iso).getDay() + 6) % 7));
+const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+const fromMin = n => String(Math.floor(n % 1440 / 60)).padStart(2,'0') + ':' + String(n % 60).padStart(2,'0');
 
 Object.assign(ui, {
   planYear: new Date().getFullYear(), planMonth: new Date().getMonth(),
@@ -1881,11 +1885,17 @@ function weatherOn(iso){ return data.weather.find(w => w.date === iso); }
 function planColor(p){
   return p.kind === 'client' ? data.settings.clientPlanColor : ((horseById(p.horseId) || {}).color || '#ddd');
 }
-function planText(p){
+// [ім'я, опис]: на картці опис — неподільний блок, що цілком переходить на новий рядок
+function planParts(p){
   const hn = (horseById(p.horseId) || {}).name || '?';
-  if(p.kind === 'session') return hn + ' · ' + ((wt(p.workTypeId) || {}).name || '?');
-  if(p.kind === 'event') return hn + ' · ' + p.category;
-  return (p.clientName || '?') + (p.lessonType ? ' · ' + p.lessonType : '');
+  if(p.kind === 'session') return [hn, (wt(p.workTypeId) || {}).name || '?'];
+  if(p.kind === 'event') return [hn, p.category || ''];
+  return [p.clientName || '?', p.lessonType || ''];
+}
+const planText = p => planParts(p).filter(Boolean).join(' · ');
+function chipText(p){
+  const [n, d] = planParts(p);
+  return esc(n) + (d ? ' · <span class="pd">' + esc(d) + '</span>' : '');
 }
 function planSub(p){
   const parts = [];
@@ -1905,7 +1915,7 @@ function viewPlan(){
     '<div class="row" style="margin-left:auto;gap:6px;">' + (ui.planSelect
       ? '<button class="btn small sec" id="plAll">Усі з планами</button><button class="btn small sec" id="plCancel">Скасувати</button>' +
         '<button class="btn small" id="plDone"' + (selCount ? '' : ' disabled') + '>План виконано (' + selCount + ')</button>'
-      : '<button class="btn small sec" id="plSelect">Вибрати дні</button><button class="btn small sec" id="plCopy">Копіювати…</button>' +
+      : '<button class="btn small sec" id="plSelect">Вибрати дні</button><button class="btn small sec" id="plCopy">Копіювати…</button><button class="btn small sec" id="plGcal">Google Календар</button>' +
         '<button class="btn small" id="plAdd">+ План</button>') + '</div></div>';
   if(ui.planSelect) html += '<p class="muted" style="margin-bottom:10px;">Позначте дні клацанням, потім натисніть «План виконано» — заплановане запишеться у щоденники та статистику тренувань.</p>';
 
@@ -1921,7 +1931,7 @@ function viewPlan(){
       (wx && wx.away ? '<span class="wx ' + (wx.type || 'away') + '" title="' + WX.away.name + '">' + WX.away.icon + '</span>' : '') + '</span></div>' +
       '<div class="pchips">' + ps.map(p => '<div class="pchip' + (p.kind === 'event' ? ' ev' : '') + (p.done ? ' done' : '') +
         '" style="background:' + esc(planColor(p)) + '" title="' + esc(planText(p)) + '">' + (p.done ? '✓ ' : '') +
-        (p.time ? '<span class="tm">' + esc(p.time) + '</span>' : '') + esc(planText(p)) + '</div>').join('') + '</div>' +
+        (p.time ? '<span class="tm">' + esc(p.time) + '</span>' : '') + chipText(p) + '</div>').join('') + '</div>' +
       '<div class="pdots">' + ps.map(p => '<span class="pdot' + (p.done ? ' done' : '') + '" style="background:' + esc(planColor(p)) + '"></span>').join('') + '</div>' +
       '</div>';
   }
@@ -1999,6 +2009,7 @@ function bindPlan(){
   };
   if($('#plAdd')) $('#plAdd').onclick = () => planForm(null, defDate());
   if($('#plCopy')) $('#plCopy').onclick = () => copyPlansModal(defDate());
+  if($('#plGcal')) $('#plGcal').onclick = gcalModal;
   if($('#plSelect')) $('#plSelect').onclick = () => { ui.planSelect = true; render(); };
   if($('#plCancel')) $('#plCancel').onclick = () => { ui.planSelect = false; ui.planSel.clear(); render(); };
   if($('#plAll')) $('#plAll').onclick = () => {
@@ -2034,7 +2045,7 @@ function planDayModal(iso){
   html += ps.length ? ps.map(p => {
     const sub = planSub(p);
     return '<div class="plan-row' + (p.done ? ' done' : '') + '" style="border-left-color:' + esc(planColor(p)) + '">' +
-      '<div class="pt">' + (p.done ? '✓ ' : '') + (p.time ? '<b>' + esc(p.time) + '</b> ' : '') + esc(planText(p)) +
+      '<div class="pt">' + (p.done ? '✓ ' : '') + (p.time ? '<b>' + esc(p.time) + (p.endTime ? '–' + esc(p.endTime) : '') + '</b> ' : '') + esc(planText(p)) +
       (p.kind === 'event' ? ' <span class="muted">(подія)</span>' : '') + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>' +
       (p.done ? '<button class="iconbtn" data-pun="' + p.id + '" title="Повернути у невиконані">' + IC_UNDO + '</button>' : '') +
       '<button class="iconbtn" data-ped="' + p.id + '">' + IC.edit + '</button>' +
@@ -2074,7 +2085,9 @@ function planForm(id, presetDate, backIso){
     (p ? '' : '<div class="field"><label>Що плануємо</label><select id="pKind">' +
       Object.keys(PLAN_KINDS).map(k => '<option value="' + k + '">' + PLAN_KINDS[k] + '</option>').join('') + '</select></div>') +
     '<div class="row" style="gap:10px;"><div class="field" style="flex:1;min-width:140px;"><label>Дата</label><input type="date" id="pDate" value="' + date + '"></div>' +
-    '<div class="field" style="flex:1;min-width:120px;"><label>Час (необов\'язково)</label><input type="time" id="pTime" value="' + esc(p && p.time || '') + '"></div></div>' +
+    '<div class="field" style="flex:1;min-width:100px;"><label>Початок</label><input type="time" id="pTime" value="' + esc(p && p.time || '') + '"></div>' +
+    '<div class="field" style="flex:1;min-width:100px;"><label>Кінець</label><input type="time" id="pEnd" value="' + esc(p && p.endTime || '') + '"></div></div>' +
+    '<p class="muted" style="margin:-4px 0 10px;font-size:12.5px;">Час необов\'язковий. Без початку план потрапить у Google Календар подією на весь день.</p>' +
     '<div data-k="session event"><div class="field"><label>Кінь</label><select id="pHorse">' +
       hs.map(h => '<option value="' + h.id + '"' + sel(p ? p.horseId === h.id : h.id === ui.horseId) + '>' + esc(h.name) + '</option>').join('') + '</select></div></div>' +
     '<div data-k="session">' +
@@ -2111,6 +2124,13 @@ function planForm(id, presetDate, backIso){
   showKind();
   if(!p) m.querySelector('#pKind').onchange = showKind;
   m.querySelector('#pName').onchange = e => { m.querySelector('#pNewNameWrap').style.display = e.target.value === '__new__' ? '' : 'none'; };
+  // початок / кінець / тривалість тримаються узгодженими
+  const tmEl = m.querySelector('#pTime'), enEl = m.querySelector('#pEnd'), duEl = m.querySelector('#pDur');
+  const durFromRange = () => { if(tmEl.value && enEl.value){ const dm = toMin(enEl.value) - toMin(tmEl.value); if(dm > 0) duEl.value = dm; } };
+  const endFromDur = () => { if(tmEl.value && Number(duEl.value) > 0){ const e = toMin(tmEl.value) + Number(duEl.value); if(e < 1440) enEl.value = fromMin(e); } };
+  tmEl.onchange = () => enEl.value ? durFromRange() : endFromDur();
+  enEl.onchange = durFromRange;
+  duEl.oninput = endFromDur;
   const wdSel = new Set([(dateOf(date).getDay() + 6) % 7]);
   if(!p){
     const syncWd = () => m.querySelectorAll('[data-wd]').forEach(b => b.classList.toggle('sel', wdSel.has(Number(b.dataset.wd))));
@@ -2134,7 +2154,10 @@ function planForm(id, presetDate, backIso){
     const k = kindOf();
     const d = m.querySelector('#pDate').value;
     if(!d) return toast('Вкажіть дату', 'error');
-    const fields = { kind: k, time: m.querySelector('#pTime').value || '', notes: m.querySelector('#pNotes').value.trim() };
+    const tm = tmEl.value || '', en = enEl.value || '';
+    if(en && !tm) return toast('Щоб вказати кінець, вкажіть і початок', 'error');
+    if(en && toMin(en) <= toMin(tm)) return toast('Кінець має бути пізніше за початок', 'error');
+    const fields = { kind: k, time: tm, endTime: en, notes: m.querySelector('#pNotes').value.trim() };
     if(k === 'session' || k === 'event'){
       fields.horseId = m.querySelector('#pHorse').value;
       if(!fields.horseId) return toast('Оберіть коня', 'error');
@@ -2142,7 +2165,7 @@ function planForm(id, presetDate, backIso){
     if(k === 'session'){
       fields.workTypeId = m.querySelector('#pType').value;
       fields.place = m.querySelector('#pPlace').value;
-      fields.duration = Number(m.querySelector('#pDur').value) || null;
+      fields.duration = tm && en ? toMin(en) - toMin(tm) : (Number(duEl.value) || null);
     } else if(k === 'event'){
       fields.category = m.querySelector('#pCat').value;
     } else {
@@ -2205,6 +2228,164 @@ function copyPlansModal(presetDate, presetMode){
     if(!copies.length) return toast('У вибраному періоді планів немає', 'error');
     data.plans.push(...copies);
     markDirty(); closeModal(); render(); toast('Скопійовано планів: ' + copies.length, 'ok');
+  };
+}
+
+/* ---------- імпорт планів у Google Календар (окремий календар «Стайня») ----------
+   Дозвіл calendar.app.created: застосунок бачить і змінює лише календарі, створені ним самим.
+   Подія має детермінований id від id плану, тож повторний імпорт оновлює, а не дублює. */
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.app.created';
+const GCAL_NAME = 'Стайня';
+let calClient = null, calToken = null, calExpiry = 0, calErrCb = null;
+
+function getCalToken(){
+  return new Promise((resolve, reject) => {
+    if(calToken && Date.now() < calExpiry) return resolve(calToken);
+    if(!gisReady()) return reject(new Error('Google Identity Services ще не завантажено'));
+    if(!calClient) calClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID, scope: GCAL_SCOPE, callback: () => {},
+      error_callback: e => { if(calErrCb) calErrCb(e); },
+    });
+    calClient.callback = resp => {
+      if(resp && resp.error) return reject(new Error(resp.error_description || resp.error));
+      calToken = resp.access_token; calExpiry = Date.now() + (resp.expires_in - 60) * 1000;
+      resolve(calToken);
+    };
+    calErrCb = e => reject(new Error(e && e.type === 'popup_closed' ? 'Вікно входу Google закрито' : 'Не вдалося отримати доступ до календаря'));
+    try{ calClient.requestAccessToken({ prompt: '' }); } catch(e){ reject(e); }
+  });
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function gcFetch(path, opts = {}, tries = 0){
+  const headers = { 'Authorization': 'Bearer ' + calToken };
+  if(opts.body) headers['Content-Type'] = 'application/json';
+  const r = await fetch('https://www.googleapis.com/calendar/v3' + path, Object.assign({}, opts, { headers }));
+  if(r.ok) return r.status === 204 ? null : r.json();
+  let j = {}; try{ j = await r.json(); }catch(e){}
+  const er = j.error || {}, reason = er.errors && er.errors[0] && er.errors[0].reason || '';
+  if(tries < 4 && (r.status === 429 || r.status >= 500 || (r.status === 403 && /ratelimit/i.test(reason)))){
+    await sleep(600 * 2 ** tries + Math.random() * 300);
+    return gcFetch(path, opts, tries + 1);
+  }
+  const e = new Error(er.message || ('Calendar API: ' + r.status));
+  e.status = r.status; e.reason = reason;
+  throw e;
+}
+
+const gcalEventId = p => 'sj' + p.id.toLowerCase().replace(/[^0-9a-v]/g, '');   // base32hex, вимога Calendar API
+const hashStr = s => { let h = 5381; for(let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+
+function planCalBody(p){
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Kyiv';
+  const lines = [];
+  if(p.kind === 'session'){
+    if(p.place) lines.push('Місце: ' + p.place);
+  } else if(p.kind === 'client'){
+    const hn = (horseById(p.horseId) || {}).name;
+    if(hn) lines.push('Кінь: ' + hn);
+  }
+  if(p.notes) lines.push(p.notes);          // вартість клієнта свідомо не передається
+  const body = { summary: (p.done ? '✓ ' : '') + planText(p), description: lines.join('\n') };
+  if(p.time){
+    const s = toMin(p.time);
+    let e = p.endTime ? toMin(p.endTime) : s + (p.duration || 60);
+    if(e <= s) e = s + 1;
+    const at = (day, min) => ({ dateTime: addDays(p.date, day) + 'T' + fromMin(min) + ':00', timeZone: tz });
+    body.start = at(0, s); body.end = at(Math.floor(e / 1440), e);
+  } else {
+    body.start = { date: p.date }; body.end = { date: addDays(p.date, 1) };
+  }
+  return body;
+}
+
+async function gcalSync(range, progress){
+  await getCalToken();                      // перший await: викликається прямо з кліку, щоб вікно входу не заблокувало
+  progress('Готую календар «' + GCAL_NAME + '»…');
+  let calId = data.settings.gcalCalendarId || '';
+  if(calId){
+    try{ await gcFetch('/calendars/' + encodeURIComponent(calId)); }
+    catch(e){ if(e.status === 404 || e.status === 410) calId = ''; else throw e; }
+  }
+  if(!calId){
+    const c = await gcFetch('/calendars', { method: 'POST', body: JSON.stringify({
+      summary: GCAL_NAME, description: 'Плани з журналу «Стайня»', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Kyiv',
+    }) });
+    calId = c.id; data.settings.gcalCalendarId = calId; markDirty();
+  }
+  const base = '/calendars/' + encodeURIComponent(calId) + '/events';
+
+  progress('Читаю наявні події…');
+  const existing = new Map();
+  let pageToken = '';
+  do{
+    const j = await gcFetch(base + '?maxResults=2500&showDeleted=false&fields=nextPageToken,items(id,extendedProperties)' + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''));
+    (j.items || []).forEach(ev => existing.set(ev.id, ev));
+    pageToken = j.nextPageToken || '';
+  } while(pageToken);
+
+  const today = todayISO(), ym = ui.planYear + '-' + String(ui.planMonth + 1).padStart(2, '0');
+  const plans = data.plans.filter(p => range === 'all' || (range === 'future' ? p.date >= today : p.date.slice(0, 7) === ym));
+  const planIds = new Set(data.plans.map(p => p.id));
+  const st = { added: 0, updated: 0, same: 0, removed: 0 };
+  const jobs = [];
+  for(const p of plans){
+    const body = planCalBody(p), sig = hashStr(JSON.stringify(body)), id = gcalEventId(p), ex = existing.get(id);
+    const full = Object.assign({ id, status: 'confirmed', extendedProperties: { private: { sjPlan: p.id, sjSig: sig } } }, body);
+    if(ex && ex.extendedProperties && ex.extendedProperties.private && ex.extendedProperties.private.sjSig === sig){ st.same++; continue; }
+    jobs.push(async () => {
+      const put = () => gcFetch(base + '/' + id, { method: 'PUT', body: JSON.stringify(full) });
+      if(ex){ await put(); st.updated++; return; }
+      try{ await gcFetch(base, { method: 'POST', body: JSON.stringify(full) }); st.added++; }
+      catch(e){ if(e.status !== 409) throw e; await put(); st.updated++; }   // id уже був (подію видалили в Календарі) — відновлюємо
+    });
+  }
+  // події, чиїх планів у журналі вже немає
+  for(const [id, ev] of existing){
+    const pid = ev.extendedProperties && ev.extendedProperties.private && ev.extendedProperties.private.sjPlan;
+    if(pid && !planIds.has(pid)) jobs.push(async () => {
+      try{ await gcFetch(base + '/' + id, { method: 'DELETE' }); st.removed++; }
+      catch(e){ if(e.status !== 404 && e.status !== 410) throw e; }
+    });
+  }
+  let done = 0;
+  const worker = async () => { while(jobs.length){ const j = jobs.shift(); await j(); progress('Синхронізую… ' + (++done) + ' з ' + (done + jobs.length)); } };
+  const total = jobs.length;
+  if(total) progress('Синхронізую… 0 з ' + total);
+  await Promise.all([worker(), worker(), worker()]);
+  return st;
+}
+
+function gcalModal(){
+  if(!GOOGLE_CLIENT_ID) return toast('Не вказано Google Client ID', 'error');
+  const ym = MONTHS[ui.planMonth] + ' ' + ui.planYear;
+  const html = '<h2>Імпорт у Google Календар</h2>' +
+    '<p class="muted" style="margin-bottom:10px;">Плани потраплять в окремий календар «' + GCAL_NAME + '»' +
+    (data.settings.gcalCalendarId ? '' : ' (його буде створено автоматично)') + '. Основний календар і решту календарів застосунок не бачить і не змінює.</p>' +
+    '<div class="field"><label>Які плани</label><select id="gcRange">' +
+      '<option value="month">Показаний місяць (' + esc(ym) + ')</option><option value="future">Від сьогодні й далі</option><option value="all">Усі плани</option></select></div>' +
+    '<p class="muted" style="font-size:12.5px;">Повторний імпорт оновлює наявні події, а не дублює їх; плани, видалені в журналі, зникнуть і з календаря. Плани без часу стають подіями на весь день, без кінця — тривалістю з плану або 1 година. Вартість клієнтів не передається.</p>' +
+    '<p id="gcStatus" style="margin-top:10px;font-weight:700;min-height:20px;"></p>' +
+    '<div class="modal-foot"><button class="btn sec" id="gcCancel">Закрити</button><button class="btn" id="gcGo">Імпортувати</button></div>';
+  const m = showModal(html);
+  const status = m.querySelector('#gcStatus'), go = m.querySelector('#gcGo');
+  m.querySelector('#gcCancel').onclick = closeModal;
+  go.onclick = async () => {
+    go.disabled = true;
+    status.style.color = '';
+    try{
+      const st = await gcalSync(m.querySelector('#gcRange').value, t => { status.textContent = t; });
+      status.textContent = 'Готово: додано ' + st.added + ', оновлено ' + st.updated + ', без змін ' + st.same + (st.removed ? ', видалено ' + st.removed : '') + '.';
+      toast('Календар «' + GCAL_NAME + '» оновлено', 'ok');
+    } catch(e){
+      console.error(e);
+      status.style.color = 'var(--danger)';
+      status.textContent = e.reason === 'accessNotConfigured' || /has not been used|is disabled/i.test(e.message)
+        ? 'Calendar API не ввімкнено в проєкті Google Cloud.'
+        : 'Не вдалося: ' + (e.message || 'невідома помилка');
+      if(e.status === 401) calToken = null;
+    }
+    go.disabled = false; go.textContent = 'Повторити';
   };
 }
 
