@@ -91,7 +91,7 @@ h3{font-size:15.5px; font-weight:800; margin-bottom:8px;}
 /* ---------- forms ---------- */
 .field{margin-bottom:12px;}
 .field label{display:block; font-size:13px; font-weight:700; color:var(--text-soft); margin-bottom:4px;}
-.field input[type=text],.field input[type=number],.field input[type=date],.field select,.field textarea{
+.field input[type=text],.field input[type=number],.field input[type=date],.field input[type=time],.field select,.field textarea{
   width:100%; border:1.5px solid var(--border); border-radius:10px; padding:8px 11px; background:#fff; outline:none;
 }
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--primary);}
@@ -158,6 +158,66 @@ h3{font-size:15.5px; font-weight:800; margin-bottom:8px;}
   text-overflow:ellipsis; white-space:nowrap;
 }
 
+/* ---------- planning (Місяць) ---------- */
+.pgrid{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px;}
+.pgrid .wd{font-size:12px; font-weight:700; color:var(--text-soft); text-align:center; padding:3px 0;}
+.pcell{
+  min-height:104px; border-radius:10px; background:#fff; border:1.5px solid var(--border);
+  padding:4px 5px 5px; cursor:pointer; position:relative; transition:border-color .15s; min-width:0;
+}
+.pcell:hover{border-color:var(--primary);}
+.pcell.empty{background:none; border:none; cursor:default;}
+.pcell .ptop{display:flex; justify-content:space-between; align-items:center; min-height:18px;}
+.pcell .dn{font-size:12px; font-weight:700; color:var(--text-soft);}
+.pcell.today .dn{color:var(--text); background:var(--primary-soft); border-radius:6px; padding:0 5px;}
+.pcell.overdue{border-color:var(--danger); border-width:2px; background:rgba(201,123,107,.07);}
+.pcell.sel{outline:3px solid var(--primary); outline-offset:-2px; background:var(--primary-soft);}
+.pcell.rain{background-image:linear-gradient(180deg, rgba(74,134,197,.10), transparent 60%);}
+.pcell.snow{background-image:linear-gradient(180deg, rgba(111,179,201,.14), transparent 60%);}
+.pcell.heat{background-image:linear-gradient(180deg, rgba(224,144,58,.12), transparent 60%);}
+.wx{display:inline-flex; align-items:center;}
+.wx svg{width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
+.wx.rain{color:#4A86C5;} .wx.snow{color:#4FA6C0;} .wx.heat{color:#E0903A;}
+.pchips{display:flex; flex-direction:column; gap:3px; margin-top:3px;}
+.pchip{
+  font-size:11px; font-weight:700; line-height:1.25; padding:2px 6px; border-radius:6px; color:var(--text);
+  overflow-wrap:anywhere; border:1px solid rgba(61,56,48,.10);
+}
+.pchip.ev{border-style:dashed; border-color:rgba(61,56,48,.35);}
+.pchip.done{opacity:.55;}
+.pchip .tm{font-weight:800; margin-right:3px;}
+.pdots{display:none; flex-wrap:wrap; gap:3px; margin-top:4px;}
+.pdot{width:9px; height:9px; border-radius:50%; border:1px solid rgba(61,56,48,.2);}
+.pdot.done{opacity:.4;}
+.psum{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:16px;}
+.psum .bx{background:#fff; border:1px solid var(--border); border-radius:12px; padding:11px 14px;}
+.psum .ln{display:flex; align-items:center; gap:8px; font-size:13.5px; padding:2px 0;}
+.psum .ln .sw{width:12px; height:12px; border-radius:4px; flex-shrink:0;}
+.psum .ln b{margin-left:auto;}
+.plan-row{display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-left-width:6px; border-radius:10px; padding:7px 9px; margin-bottom:7px; background:#fff;}
+.plan-row.done{opacity:.6;}
+.plan-row .pt{flex:1; min-width:0; font-size:14px;}
+.plan-row .pt small{display:block; color:var(--text-soft); font-size:12px;}
+.wxbtns{display:flex; gap:6px; margin-bottom:12px;}
+.wxbtn{flex:1; border:1.5px solid var(--border); background:#fff; border-radius:10px; padding:6px 8px; font-weight:700; font-size:13px; cursor:pointer; color:var(--text-soft); display:flex; align-items:center; justify-content:center; gap:6px;}
+.wxbtn.on{color:var(--text); border-width:2px;}
+.wxbtn.on.rain{border-color:#4A86C5; background:rgba(74,134,197,.12);}
+.wxbtn.on.snow{border-color:#4FA6C0; background:rgba(111,179,201,.18);}
+.wxbtn.on.heat{border-color:#E0903A; background:rgba(224,144,58,.14);}
+.wxbtn svg{width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
+.wdchips{display:flex; gap:5px; flex-wrap:wrap;}
+.wdchips button{border:1.5px solid var(--border); background:#fff; border-radius:8px; padding:4px 9px; font-weight:700; font-size:13px; cursor:pointer; color:var(--text-soft);}
+.wdchips button.sel{background:var(--primary); border-color:var(--primary); color:#fff;}
+.conf{border:1px solid var(--border); border-radius:10px; padding:9px 11px; margin-bottom:9px; background:#fff;}
+.conf .opts{display:flex; flex-direction:column; gap:3px; margin-top:6px; font-size:13.5px;}
+.conf .opts label{display:flex; gap:7px; align-items:center; cursor:pointer;}
+@media (max-width:719px){
+  .pcell{min-height:56px; padding:3px 3px 4px;}
+  .pchips{display:none;}
+  .pdots{display:flex;}
+  .pcell .wx svg{width:12px; height:12px;}
+}
+
 /* context menu */
 .ctxmenu{
   position:fixed; z-index:200; background:var(--surface); border:1px solid var(--border);
@@ -210,7 +270,7 @@ table.tbl{width:100%; border-collapse:collapse; font-size:14px;}
   max-height:88vh; overflow-y:auto; box-shadow:0 10px 40px rgba(61,56,48,.25);
 }
 .modal h2{font-size:17px;}
-.modal-foot{display:flex; gap:8px; justify-content:flex-end; margin-top:14px;}
+.modal-foot{display:flex; gap:8px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap;}
 
 /* ---------- toast ---------- */
 #toasts{position:fixed; bottom:74px; left:50%; transform:translateX(-50%); z-index:300; display:flex; flex-direction:column; gap:6px; align-items:center; pointer-events:none;}
@@ -270,7 +330,7 @@ table.tbl{width:100%; border-collapse:collapse; font-size:14px;}
   }
   .bottomnav button{
     flex:1; border:none; background:none; display:flex; flex-direction:column; align-items:center; gap:1px;
-    font-size:10px; font-weight:700; color:var(--text-soft); cursor:pointer; padding:4px 0; border-radius:8px;
+    font-size:9.5px; font-weight:700; color:var(--text-soft); cursor:pointer; padding:4px 0; border-radius:8px; min-width:0;
   }
   .bottomnav button svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .bottomnav button.active{color:#7E6BA8;}
@@ -380,7 +440,7 @@ function defaultData(){
       { id: uid(), name: 'Їзда верхи',          color: '#D4E8FF', hidden:false, updatedAt: Date.now() },
       { id: uid(), name: 'Пробіжне тренування', color: '#FFD4D4', hidden:false, updatedAt: Date.now() },
     ],
-    sessions: [], events: [], clients: [],
+    sessions: [], events: [], clients: [], plans: [], weather: [],
     settings: {
       places: ['манеж','левада','вулиця','ліс','бочка'],
       eventCategories: [
@@ -404,6 +464,9 @@ function normalizeData(d){
   (d.workTypes || []).forEach(w => { if(w.rest === undefined) w.rest = /відпочин/i.test(w.name); });
   (d.clients || []).forEach(c => { if(c.paid === undefined) c.paid = false; });
   if(d.settings.note === undefined) d.settings.note = '';
+  if(!d.settings.clientPlanColor) d.settings.clientPlanColor = '#F4D9A6';
+  if(!Array.isArray(d.plans)) d.plans = [];
+  if(!Array.isArray(d.weather)) d.weather = [];
   if(!Array.isArray(d.settings.clientNames)) d.settings.clientNames = [];
   if(!Array.isArray(d.settings.archivedClients)) d.settings.archivedClients = [];
   // підхопити всі імена з наявних записів у реєстр
@@ -420,6 +483,8 @@ function wt(id){ return data.workTypes.find(w => w.id === id); }
 function horseById(id){ return data.horses.find(h => h.id === id); }
 function activeHorses(){ return data.horses.filter(h => !h.archived && !h.clientOnly); }
 function selectableHorses(){ return data.horses.filter(h => !h.archived); }
+// коні зі щоденниками — вгорі, клієнтські — внизу (порядок усередині груп зберігається)
+function journalFirst(list){ return [...list].sort((a,b) => (a.clientOnly ? 1 : 0) - (b.clientOnly ? 1 : 0)); }
 
 function markDeleted(id){ data.meta.deleted[id] = Date.now(); }
 function pruneDeleted(){
@@ -607,7 +672,7 @@ async function driveUpload(id, content){
 function mergeData(local, remote){
   const out = JSON.parse(JSON.stringify(remote));
   const deleted = Object.assign({}, remote.meta && remote.meta.deleted, local.meta && local.meta.deleted);
-  for(const col of ['horses','workTypes','sessions','events','clients']){
+  for(const col of ['horses','workTypes','sessions','events','clients','plans','weather']){
     const map = new Map();
     for(const r of (remote[col] || [])) map.set(r.id, r);
     for(const r of (local[col] || [])){
@@ -731,21 +796,24 @@ const SVGI = {
   journal: '<svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
   events: '<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
   clients: '<svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  plan: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2.5"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><polyline points="8.5 15 11 17.5 15.5 12.5"/></svg>',
   stats: '<svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>',
   settings: '<svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>',
 };
 const NAV = [
-  ['tracker','Трекер'], ['journal','Щоденник'], ['events','Події'],
+  ['tracker','Трекер'], ['plan','Місяць'], ['journal','Щоденник'], ['events','Події'],
   ['clients','Клієнти'], ['stats','Статистика'], ['settings','Налаштування'],
 ];
 
+// скорочені підписи для нижньої панелі на телефоні (8 пунктів інакше накладаються)
+const NAV_SHORT = { journal:'Щоденник', stats:'Статист.', settings:'Налашт.' };
 function renderNav(){
   const notesTop = '<button class="nav-btn notes-toggle' + (ui.notesOpen?' active':'') + '" data-notes-toggle>' + IC.note + 'Нотатка</button>';
   const notesBot = '<button class="' + (ui.notesOpen?'active':'') + '" data-notes-toggle>' + IC.note + 'Нотатка</button>';
   $('#topnav').innerHTML = NAV.map(([k,n]) =>
     '<button class="nav-btn' + (ui.view===k?' active':'') + '" data-v="' + k + '">' + n + '</button>').join('') + notesTop;
   $('#bottomnav').innerHTML = NAV.map(([k,n]) =>
-    '<button class="' + (ui.view===k?'active':'') + '" data-v="' + k + '">' + SVGI[k] + n + '</button>').join('') + notesBot;
+    '<button class="' + (ui.view===k?'active':'') + '" data-v="' + k + '">' + SVGI[k] + (NAV_SHORT[k] || n) + '</button>').join('') + notesBot;
   document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { ui.view = b.dataset.v; render(); });
   document.querySelectorAll('[data-notes-toggle]').forEach(b => b.onclick = () => { ui.notesOpen = !ui.notesOpen; renderNav(); renderNotes(); });
 }
@@ -763,6 +831,7 @@ function render(){
   renderNav(); renderHorseSwitch();
   const v = $('#view');
   if(ui.view==='tracker') v.innerHTML = viewTracker();
+  else if(ui.view==='plan') v.innerHTML = viewPlan();
   else if(ui.view==='journal') v.innerHTML = viewJournal();
   else if(ui.view==='events') v.innerHTML = viewEvents();
   else if(ui.view==='clients') v.innerHTML = viewClients();
@@ -1239,7 +1308,7 @@ function viewClients(){
       months.map(m => { const [y,mm] = m.split('-'); return '<option value="' + m + '"' + (f.month===m?' selected':'') + '>' + MONTHS[Number(mm)-1] + ' ' + y + '</option>'; }).join('') + '</select></div>' +
     '<div class="f"><label>Ім\'я</label><input type="text" id="clName" value="' + esc(f.name) + '" placeholder="пошук…"></div>' +
     '<div class="f"><label>Кінь</label><select id="clHorse"><option value="all">всі</option>' +
-      data.horses.map(h => '<option value="' + h.id + '"' + (f.horse===h.id?' selected':'') + '>' + esc(h.name) + (h.clientOnly ? ' (кл.)' : '') + '</option>').join('') + '</select></div></div>' +
+      journalFirst(data.horses).map(h => '<option value="' + h.id + '"' + (f.horse===h.id?' selected':'') + '>' + esc(h.name) + (h.clientOnly ? ' (кл.)' : '') + '</option>').join('') + '</select></div></div>' +
     '<div class="sum-banner">Разом за період: <span style="font-size:19px;">' + total.toLocaleString('uk-UA') + ' грн</span>' +
       '<span class="muted">(' + list.length + ' трен.)</span>' +
       '<span class="muted" style="margin-left:auto;font-weight:700;">сплачено: ' + paidTotal.toLocaleString('uk-UA') + ' грн</span>' +
@@ -1329,7 +1398,7 @@ function clientForm(id, copyFromId){
     '<div class="field" id="cNewNameWrap" style="display:none;"><label>Нове ім\'я клієнта</label><input type="text" id="cNewName"></div>' +
     '<div class="field"><label>Тип тренування</label><input type="text" id="cType" value="' + esc(src && src.lessonType || '') + '" placeholder="напр., манежне, виїзд у ліс…"></div>' +
     '<div class="field"><label>Кінь</label><select id="cHorse"><option value="">—</option>' +
-      selectableHorses().map(h => '<option value="' + h.id + '"' + (src && src.horseId===h.id?' selected':'') + '>' + esc(h.name) + (h.clientOnly ? ' (клієнтський)' : '') + '</option>').join('') +
+      journalFirst(selectableHorses()).map(h => '<option value="' + h.id + '"' + (src && src.horseId===h.id?' selected':'') + '>' + esc(h.name) + (h.clientOnly ? ' (клієнтський)' : '') + '</option>').join('') +
       '<option value="__new__">+ новий кінь…</option></select></div>' +
     '<div class="field" id="cNewHorseWrap" style="display:none;"><label>Кличка нового коня</label><input type="text" id="cNewHorse">' +
       '<p class="muted" style="margin-top:4px;">Додасться як «клієнтський» — без щоденника й трекера. Змінити це можна в Налаштуваннях.</p></div>' +
@@ -1510,12 +1579,36 @@ function viewStats(){
 
   if(!sess.length){
     html += '<p class="muted">Даних за ' + y + ' рік поки недостатньо. Додайте кілька сесій — і графіки оживуть</p></div>';
-    return html;
+    return html + weatherStatsHTML(y);
   }
   html += '<h3>Типи роботи по місяцях</h3><div class="chartbox"><canvas id="chTypes"></canvas></div>' +
     '<div style="height:20px;"></div><h3>Середня якість по місяцях</h3><div class="chartbox"><canvas id="chQuality"></canvas></div>' +
     '<div style="height:20px;"></div><h3>Робочі сесії та години по місяцях</h3><div class="chartbox"><canvas id="chVolume"></canvas></div></div>';
-  return html;
+  return html + weatherStatsHTML(y);
+}
+
+// блок «Погода» у статистиці: дні з дощем/снігом/спекою і скільки з них минуло без роботи
+function weatherStatsHTML(y){
+  const recs = data.weather.filter(w => w.date.slice(0,4) == y);
+  let html = '<div class="card"><h2>Погана погода — ' + y + '</h2>';
+  if(!recs.length) return html + '<p class="muted">Позначок погоди за цей рік ще немає. Ставте їх у вкладці «Місяць» — краплею, сніжинкою чи сонцем у дні.</p></div>';
+  const workDays = new Set(sessionsOf(ui.horseId).filter(s => !(wt(s.workTypeId) || {}).rest).map(s => s.date));
+  const today = todayISO();
+  const noWork = r => r.date <= today && !workDays.has(r.date);
+  html += '<div class="statcards">' + Object.keys(WX).map(k => {
+    const rs = recs.filter(r => r.type === k);
+    return '<div class="statcard"><div class="v"><span class="wx ' + k + '" style="vertical-align:-2px;margin-right:6px;">' + WX[k].icon + '</span>' + rs.length + '</div>' +
+      '<div class="l">' + WX[k].name + ' — днів' + (horse() ? ' · без роботи (' + esc(horse().name) + '): ' + rs.filter(noWork).length : '') + '</div></div>';
+  }).join('') + '</div>';
+  html += '<div style="overflow-x:auto;"><table class="tbl"><tr><th>Місяць</th>' +
+    Object.keys(WX).map(k => '<th>' + WX[k].name + '</th>').join('') + '<th>Без роботи' + (horse() ? ' (' + esc(horse().name) + ')' : '') + '</th></tr>';
+  for(let m=0; m<12; m++){
+    const mr = recs.filter(r => Number(r.date.slice(5,7)) - 1 === m);
+    if(!mr.length) continue;
+    html += '<tr><td>' + MONTHS[m] + '</td>' + Object.keys(WX).map(k => '<td>' + (mr.filter(r => r.type === k).length || '—') + '</td>').join('') +
+      '<td>' + mr.filter(noWork).length + ' з ' + mr.length + '</td></tr>';
+  }
+  return html + '</table></div></div>';
 }
 
 function bindStats(){
@@ -1645,6 +1738,11 @@ function viewSettings(){
       '<button class="iconbtn" data-delc="' + i + '">' + IC.trash + '</button></span></div>').join('') +
     '<div style="margin-top:10px;"><button class="btn small sec" id="addCat">+ Додати категорію</button></div></div>';
 
+  html += '<div class="card"><h2>Календар планування</h2>' +
+    '<div class="field"><label>Колір тренувань клієнтів у календарі «Місяць»</label>' +
+    colorPicker('planClientColor', data.settings.clientPlanColor) + '</div>' +
+    '<p class="muted">Плани для коней фарбуються в колір коня, як у шапці застосунку.</p></div>';
+
   html += '<div class="card"><h2>Дані</h2><div class="row">' +
     '<button class="btn sec" id="expXlsx">' + IC.download + 'Експорт у Excel</button>' +
     '<button class="btn sec" id="expJson">' + IC.download + 'Резервна копія JSON</button>' +
@@ -1723,10 +1821,417 @@ function bindSettings(){
   document.querySelectorAll('[data-delc]').forEach(b => b.onclick = () => confirmModal('Видалити цю категорію? Записи з нею залишаться.', () => {
     data.settings.eventCategories.splice(Number(b.dataset.delc), 1); markDirty(); render();
   }));
+  const pcc = $('#planClientColor');
+  if(pcc){
+    const setPlanColor = v => { data.settings.clientPlanColor = v; data.meta.updatedAt = Date.now(); markDirty(); };
+    pcc.querySelectorAll('.color-sw').forEach(sw => sw.onclick = () => {
+      setPlanColor(sw.dataset.c);
+      pcc.querySelectorAll('.color-sw').forEach(x => x.classList.toggle('sel', x === sw));
+    });
+    const cust = pcc.querySelector('input[type=color]');
+    cust.oninput = () => { pcc.querySelectorAll('.color-sw').forEach(x => x.classList.remove('sel')); setPlanColor(cust.value); };
+  }
   $('#expXlsx').onclick = exportXlsx;
   $('#expJson').onclick = exportJson;
   $('#impJson').onclick = () => $('#impFile').click();
   $('#impFile').onchange = importJson;
+}
+
+/* ---------------- ПЛАНУВАННЯ («Місяць») ---------------- */
+const WX = {
+  rain: { name:'Дощ',   icon:'<svg viewBox="0 0 24 24"><path d="M12 2.5C12 2.5 5 10 5 14.5a7 7 0 0 0 14 0C19 10 12 2.5 12 2.5z"/></svg>' },
+  snow: { name:'Сніг',  icon:'<svg viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/><line x1="3.3" y1="7" x2="20.7" y2="17"/><line x1="3.3" y1="17" x2="20.7" y2="7"/></svg>' },
+  heat: { name:'Спека', icon:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="6.7" y2="6.7"/><line x1="17.3" y1="17.3" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="6.7" y2="17.3"/><line x1="17.3" y1="6.7" x2="19.1" y2="4.9"/></svg>' },
+};
+const IC_UNDO = '<svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
+const PLAN_KINDS = { session:'Сесія коня', event:'Подія коня', client:'Тренування клієнта' };
+
+const isoOf = (y, m, d) => y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+const dateOf = iso => { const [y,m,d] = iso.split('-').map(Number); return new Date(y, m-1, d); };
+const addDays = (iso, n) => { const dt = dateOf(iso); dt.setDate(dt.getDate() + n); return isoOf(dt.getFullYear(), dt.getMonth(), dt.getDate()); };
+const diffDays = (a, b) => Math.round((dateOf(a) - dateOf(b)) / 86400000);
+const weekStart = iso => addDays(iso, -((dateOf(iso).getDay() + 6) % 7));
+
+Object.assign(ui, {
+  planYear: new Date().getFullYear(), planMonth: new Date().getMonth(),
+  planSelect: false, planSel: new Set(),
+});
+
+function plansOnDay(iso){
+  return data.plans.filter(p => p.date === iso)
+    .sort((a,b) => (a.time || '').localeCompare(b.time || '') || (a.createdAt || 0) - (b.createdAt || 0));
+}
+function weatherOn(iso){ return data.weather.find(w => w.date === iso); }
+function planColor(p){
+  return p.kind === 'client' ? data.settings.clientPlanColor : ((horseById(p.horseId) || {}).color || '#ddd');
+}
+function planText(p){
+  const hn = (horseById(p.horseId) || {}).name || '?';
+  if(p.kind === 'session') return hn + ' · ' + ((wt(p.workTypeId) || {}).name || '?');
+  if(p.kind === 'event') return hn + ' · ' + p.category;
+  return (p.clientName || '?') + (p.lessonType ? ' · ' + p.lessonType : '');
+}
+function planSub(p){
+  const parts = [];
+  if(p.kind === 'session'){ if(p.place) parts.push(p.place); if(p.duration) parts.push(p.duration + ' хв'); }
+  if(p.kind === 'client' && p.horseId) parts.push((horseById(p.horseId) || {}).name || '');
+  if(p.notes) parts.push(p.notes);
+  return parts.filter(Boolean).join(' · ');
+}
+
+function viewPlan(){
+  const y = ui.planYear, m = ui.planMonth, dim = daysInMonth(y, m), today = todayISO();
+  const firstWd = (new Date(y, m, 1).getDay() + 6) % 7;
+  const selCount = plansOfDays([...ui.planSel]).length;
+  let html = '<div class="card"><div class="tr-controls">' +
+    '<div class="yearnav"><button id="plPrev">‹</button><span>' + MONTHS[m] + ' ' + y + '</span><button id="plNext">›</button></div>' +
+    '<button class="btn small sec" id="plToday">Сьогодні</button>' +
+    '<div class="row" style="margin-left:auto;gap:6px;">' + (ui.planSelect
+      ? '<button class="btn small sec" id="plAll">Усі з планами</button><button class="btn small sec" id="plCancel">Скасувати</button>' +
+        '<button class="btn small" id="plDone"' + (selCount ? '' : ' disabled') + '>План виконано (' + selCount + ')</button>'
+      : '<button class="btn small sec" id="plSelect">Вибрати дні</button><button class="btn small sec" id="plCopy">Копіювати…</button>' +
+        '<button class="btn small" id="plAdd">+ План</button>') + '</div></div>';
+  if(ui.planSelect) html += '<p class="muted" style="margin-bottom:10px;">Позначте дні клацанням, потім натисніть «План виконано» — заплановане запишеться у щоденники та статистику тренувань.</p>';
+
+  html += '<div class="pgrid">' + WDAYS.map(w => '<div class="wd">' + w + '</div>').join('');
+  for(let i = 0; i < firstWd; i++) html += '<div class="pcell empty"></div>';
+  for(let d = 1; d <= dim; d++){
+    const iso = isoOf(y, m, d), ps = plansOnDay(iso), wx = weatherOn(iso);
+    const overdue = iso < today && ps.some(p => !p.done);
+    html += '<div class="pcell' + (iso === today ? ' today' : '') + (overdue ? ' overdue' : '') +
+      (ui.planSel.has(iso) ? ' sel' : '') + (wx ? ' ' + wx.type : '') + '" data-pday="' + iso + '">' +
+      '<div class="ptop"><span class="dn">' + d + '</span>' +
+      (wx ? '<span class="wx ' + wx.type + '" title="' + WX[wx.type].name + '">' + WX[wx.type].icon + '</span>' : '') + '</div>' +
+      '<div class="pchips">' + ps.map(p => '<div class="pchip' + (p.kind === 'event' ? ' ev' : '') + (p.done ? ' done' : '') +
+        '" style="background:' + esc(planColor(p)) + '" title="' + esc(planText(p)) + '">' + (p.done ? '✓ ' : '') +
+        (p.time ? '<span class="tm">' + esc(p.time) + '</span>' : '') + esc(planText(p)) + '</div>').join('') + '</div>' +
+      '<div class="pdots">' + ps.map(p => '<span class="pdot' + (p.done ? ' done' : '') + '" style="background:' + esc(planColor(p)) + '"></span>').join('') + '</div>' +
+      '</div>';
+  }
+  html += '</div>';
+
+  // підсумок місяця
+  const ym = y + '-' + String(m+1).padStart(2,'0');
+  const mp = data.plans.filter(p => p.date.slice(0,7) === ym);
+  const sess = mp.filter(p => p.kind === 'session');
+  const cnt = (arr, keyFn) => { const mp2 = new Map(); arr.forEach(p => { const k = keyFn(p); mp2.set(k, (mp2.get(k) || 0) + 1); }); return mp2; };
+  const byHorse = cnt(sess, p => p.horseId), byType = cnt(sess, p => p.workTypeId);
+  const wxm = data.weather.filter(w => w.date.slice(0,7) === ym);
+  const ln = (color, name, n) => '<div class="ln"><span class="sw" style="background:' + esc(color) + '"></span>' + esc(name) + '<b>' + n + '</b></div>';
+  html += '<div class="sum-banner" style="margin-top:16px;">Заплановано сесій на місяць: <span style="font-size:19px;">' + sess.length + '</span>' +
+    '<span class="muted" style="margin-left:auto;font-weight:700;">виконано: ' + sess.filter(p => p.done).length + '</span></div>' +
+    '<div class="psum">' +
+    '<div class="bx"><h3>Сесії по конях</h3>' + ([...byHorse].length
+      ? [...byHorse].map(([id, n]) => ln((horseById(id) || {}).color || '#ddd', (horseById(id) || {}).name || '?', n)).join('')
+      : '<p class="muted">—</p>') + '</div>' +
+    '<div class="bx"><h3>За типами роботи</h3>' + ([...byType].length
+      ? [...byType].map(([id, n]) => ln((wt(id) || {}).color || '#ddd', (wt(id) || {}).name || '?', n)).join('')
+      : '<p class="muted">—</p>') + '</div>' +
+    '<div class="bx"><h3>Інше</h3>' +
+      ln('#fff', 'Події коней', mp.filter(p => p.kind === 'event').length) +
+      ln(data.settings.clientPlanColor, 'Тренування клієнтів', mp.filter(p => p.kind === 'client').length) +
+      Object.keys(WX).map(k => '<div class="ln"><span class="wx ' + k + '">' + WX[k].icon + '</span>' + WX[k].name + ' (днів)<b>' + wxm.filter(w => w.type === k).length + '</b></div>').join('') +
+    '</div></div></div>';
+  return html;
+}
+
+function plansOfDays(days){
+  const set = new Set(days);
+  return data.plans.filter(p => set.has(p.date) && !p.done);
+}
+
+function bindPlan(){
+  if(!$('#plPrev')) return;
+  $('#plPrev').onclick = () => { ui.planMonth--; if(ui.planMonth < 0){ ui.planMonth = 11; ui.planYear--; } render(); };
+  $('#plNext').onclick = () => { ui.planMonth++; if(ui.planMonth > 11){ ui.planMonth = 0; ui.planYear++; } render(); };
+  $('#plToday').onclick = () => { const n = new Date(); ui.planYear = n.getFullYear(); ui.planMonth = n.getMonth(); render(); };
+  const defDate = () => {
+    const t = todayISO();
+    return t.slice(0,7) === ui.planYear + '-' + String(ui.planMonth+1).padStart(2,'0') ? t : isoOf(ui.planYear, ui.planMonth, 1);
+  };
+  if($('#plAdd')) $('#plAdd').onclick = () => planForm(null, defDate());
+  if($('#plCopy')) $('#plCopy').onclick = () => copyPlansModal(defDate());
+  if($('#plSelect')) $('#plSelect').onclick = () => { ui.planSelect = true; render(); };
+  if($('#plCancel')) $('#plCancel').onclick = () => { ui.planSelect = false; ui.planSel.clear(); render(); };
+  if($('#plAll')) $('#plAll').onclick = () => {
+    const ym = ui.planYear + '-' + String(ui.planMonth+1).padStart(2,'0');
+    data.plans.filter(p => !p.done && p.date.slice(0,7) === ym).forEach(p => ui.planSel.add(p.date));
+    render();
+  };
+  if($('#plDone')) $('#plDone').onclick = () => runPlans(plansOfDays([...ui.planSel]));
+  document.querySelectorAll('[data-pday]').forEach(el => el.onclick = () => {
+    const iso = el.dataset.pday;
+    if(ui.planSelect){ if(ui.planSel.has(iso)) ui.planSel.delete(iso); else ui.planSel.add(iso); render(); }
+    else planDayModal(iso);
+  });
+}
+
+function setWeather(iso, type){
+  const rec = weatherOn(iso);
+  if(rec && rec.type === type){
+    markDeleted(rec.id);
+    data.weather = data.weather.filter(w => w.id !== rec.id);
+  } else if(rec){
+    rec.type = type; rec.updatedAt = Date.now();
+  } else {
+    data.weather.push({ id: uid(), date: iso, type, updatedAt: Date.now() });
+  }
+  markDirty(); render();
+}
+
+function planDayModal(iso){
+  const ps = plansOnDay(iso), wx = weatherOn(iso);
+  let html = '<h2>' + fmtDate(iso) + '</h2><div class="wxbtns">' + Object.keys(WX).map(k =>
+    '<button class="wxbtn ' + k + (wx && wx.type === k ? ' on' : '') + '" data-wx="' + k + '">' + WX[k].icon + WX[k].name + '</button>').join('') + '</div>';
+  html += ps.length ? ps.map(p => {
+    const sub = planSub(p);
+    return '<div class="plan-row' + (p.done ? ' done' : '') + '" style="border-left-color:' + esc(planColor(p)) + '">' +
+      '<div class="pt">' + (p.done ? '✓ ' : '') + (p.time ? '<b>' + esc(p.time) + '</b> ' : '') + esc(planText(p)) +
+      (p.kind === 'event' ? ' <span class="muted">(подія)</span>' : '') + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>' +
+      (p.done ? '<button class="iconbtn" data-pun="' + p.id + '" title="Повернути у невиконані">' + IC_UNDO + '</button>' : '') +
+      '<button class="iconbtn" data-ped="' + p.id + '">' + IC.edit + '</button>' +
+      '<button class="iconbtn" data-pdel="' + p.id + '">' + IC.trash + '</button></div>';
+  }).join('') : '<p class="muted" style="margin-bottom:8px;">На цей день планів немає.</p>';
+  const hasUndone = ps.some(p => !p.done);
+  html += '<div class="modal-foot">' + (ps.length ? '<button class="btn sec" id="pdCopy">Копіювати день…</button>' : '') +
+    (hasUndone ? '<button class="btn sec" id="pdDone">План виконано</button>' : '') +
+    '<button class="btn" id="pdAdd">+ План</button></div>';
+  const m = showModal(html);
+  m.querySelectorAll('[data-wx]').forEach(b => b.onclick = () => { setWeather(iso, b.dataset.wx); planDayModal(iso); });
+  m.querySelector('#pdAdd').onclick = () => planForm(null, iso, iso);
+  if(ps.length) m.querySelector('#pdCopy').onclick = () => copyPlansModal(iso, 'day');
+  if(hasUndone) m.querySelector('#pdDone').onclick = () => { closeModal(); runPlans(plansOfDays([iso])); };
+  m.querySelectorAll('[data-ped]').forEach(b => b.onclick = () => planForm(b.dataset.ped, null, iso));
+  m.querySelectorAll('[data-pun]').forEach(b => b.onclick = () => {
+    const p = data.plans.find(x => x.id === b.dataset.pun);
+    p.done = false; p.doneAt = null; p.updatedAt = Date.now();
+    markDirty(); render(); planDayModal(iso);
+  });
+  m.querySelectorAll('[data-pdel]').forEach(b => b.onclick = () => confirmModal('Видалити цей план?', () => {
+    markDeleted(b.dataset.pdel);
+    data.plans = data.plans.filter(p => p.id !== b.dataset.pdel);
+    markDirty(); render(); planDayModal(iso); toast('План видалено');
+  }));
+}
+
+function planForm(id, presetDate, backIso){
+  const p = id ? data.plans.find(x => x.id === id) : null;
+  const date = p ? p.date : presetDate;
+  const hs = activeHorses();
+  const types = data.workTypes.filter(w => !w.hidden || (p && p.workTypeId === w.id));
+  const names = clientNames().filter(n => !clientArchived(n) || (p && p.clientName === n));
+  const sel = (cond) => cond ? ' selected' : '';
+  const back = () => { if(backIso) planDayModal(backIso); else closeModal(); };
+  const html = '<h2>' + (p ? 'Редагувати план' : 'Новий план') + '</h2>' +
+    (p ? '' : '<div class="field"><label>Що плануємо</label><select id="pKind">' +
+      Object.keys(PLAN_KINDS).map(k => '<option value="' + k + '">' + PLAN_KINDS[k] + '</option>').join('') + '</select></div>') +
+    '<div class="row" style="gap:10px;"><div class="field" style="flex:1;min-width:140px;"><label>Дата</label><input type="date" id="pDate" value="' + date + '"></div>' +
+    '<div class="field" style="flex:1;min-width:120px;"><label>Час (необов\'язково)</label><input type="time" id="pTime" value="' + esc(p && p.time || '') + '"></div></div>' +
+    '<div data-k="session event"><div class="field"><label>Кінь</label><select id="pHorse">' +
+      hs.map(h => '<option value="' + h.id + '"' + sel(p ? p.horseId === h.id : h.id === ui.horseId) + '>' + esc(h.name) + '</option>').join('') + '</select></div></div>' +
+    '<div data-k="session">' +
+      '<div class="field"><label>Тип роботи</label><select id="pType">' +
+        types.map(w => '<option value="' + w.id + '"' + sel(p && p.workTypeId === w.id) + '>' + esc(w.name) + '</option>').join('') + '</select></div>' +
+      '<div class="field"><label>Місце</label><select id="pPlace"><option value="">—</option>' +
+        data.settings.places.map(pl => '<option' + sel(p && p.place === pl) + '>' + esc(pl) + '</option>').join('') + '</select></div>' +
+      '<div class="field"><label>Тривалість, хв</label><input type="number" id="pDur" min="1" max="600" value="' + (p && p.duration || '') + '"></div></div>' +
+    '<div data-k="event"><div class="field"><label>Категорія</label><select id="pCat">' +
+      data.settings.eventCategories.map(c => '<option' + sel(p && p.category === c.name) + '>' + esc(c.name) + '</option>').join('') + '</select></div></div>' +
+    '<div data-k="client">' +
+      '<div class="field"><label>Ім\'я клієнта</label><select id="pName"><option value="">—</option>' +
+        names.map(n => '<option' + sel(p && p.clientName === n) + '>' + esc(n) + '</option>').join('') +
+        '<option value="__new__">+ нове ім\'я…</option></select></div>' +
+      '<div class="field" id="pNewNameWrap" style="display:none;"><label>Нове ім\'я клієнта</label><input type="text" id="pNewName"></div>' +
+      '<div class="field"><label>Тип тренування</label><input type="text" id="pLesson" value="' + esc(p && p.lessonType || '') + '" placeholder="напр., манежне, виїзд у ліс…"></div>' +
+      '<div class="field"><label>Кінь</label><select id="pcHorse"><option value="">—</option>' +
+        journalFirst(selectableHorses()).map(h => '<option value="' + h.id + '"' + sel(p && p.horseId === h.id) + '>' + esc(h.name) + (h.clientOnly ? ' (клієнтський)' : '') + '</option>').join('') + '</select></div>' +
+      '<div class="field"><label>Вартість, грн (піде в статистику тренувань; у календарі не показується)</label><input type="number" id="pAmount" min="0" value="' + (p && p.amount || '') + '"></div></div>' +
+    '<div class="field"><label>Нотатки</label><textarea id="pNotes">' + esc(p && p.notes || '') + '</textarea></div>' +
+    (p ? '' : '<div class="field"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:14px;color:var(--text);">' +
+      '<input type="checkbox" id="pRep" style="width:16px;height:16px;accent-color:var(--primary);">Повторювати</label></div>' +
+      '<div id="pRepWrap" style="display:none;"><div class="field"><label>Дні тижня</label><div class="wdchips" id="pWd">' +
+        WDAYS.map((w, i) => '<button type="button" data-wd="' + i + '">' + w + '</button>').join('') + '</div></div>' +
+      '<div class="field"><label>Повторювати до (включно)</label><input type="date" id="pUntil" value="' + addDays(date, 27) + '"></div></div>') +
+    '<div class="modal-foot">' + (p && p.seriesId ? '<button class="btn ghost" id="pDelSeries">Видалити цей і наступні</button>' : '') +
+    '<button class="btn sec" id="pCancel">Скасувати</button><button class="btn" id="pSave">Зберегти</button></div>';
+  const m = showModal(html);
+  const kindOf = () => p ? p.kind : m.querySelector('#pKind').value;
+  const showKind = () => {
+    const k = kindOf();
+    m.querySelectorAll('[data-k]').forEach(el => { el.style.display = el.dataset.k.split(' ').includes(k) ? '' : 'none'; });
+  };
+  showKind();
+  if(!p) m.querySelector('#pKind').onchange = showKind;
+  m.querySelector('#pName').onchange = e => { m.querySelector('#pNewNameWrap').style.display = e.target.value === '__new__' ? '' : 'none'; };
+  const wdSel = new Set([(dateOf(date).getDay() + 6) % 7]);
+  if(!p){
+    const syncWd = () => m.querySelectorAll('[data-wd]').forEach(b => b.classList.toggle('sel', wdSel.has(Number(b.dataset.wd))));
+    syncWd();
+    m.querySelectorAll('[data-wd]').forEach(b => b.onclick = () => {
+      const i = Number(b.dataset.wd);
+      if(wdSel.has(i)) wdSel.delete(i); else wdSel.add(i);
+      syncWd();
+    });
+    m.querySelector('#pRep').onchange = e => { m.querySelector('#pRepWrap').style.display = e.target.checked ? '' : 'none'; };
+  }
+  m.querySelector('#pCancel').onclick = back;
+  if(p && p.seriesId) m.querySelector('#pDelSeries').onclick = () => confirmModal('Видалити цей план і всі наступні невиконані плани цієї серії?', () => {
+    const gone = data.plans.filter(x => x.seriesId === p.seriesId && x.date >= p.date && !x.done);
+    gone.forEach(x => markDeleted(x.id));
+    const ids = new Set(gone.map(x => x.id));
+    data.plans = data.plans.filter(x => !ids.has(x.id));
+    markDirty(); render(); toast('Видалено планів: ' + gone.length); if(backIso) planDayModal(backIso); else closeModal();
+  });
+  m.querySelector('#pSave').onclick = () => {
+    const k = kindOf();
+    const d = m.querySelector('#pDate').value;
+    if(!d) return toast('Вкажіть дату', 'error');
+    const fields = { kind: k, time: m.querySelector('#pTime').value || '', notes: m.querySelector('#pNotes').value.trim() };
+    if(k === 'session' || k === 'event'){
+      fields.horseId = m.querySelector('#pHorse').value;
+      if(!fields.horseId) return toast('Оберіть коня', 'error');
+    }
+    if(k === 'session'){
+      fields.workTypeId = m.querySelector('#pType').value;
+      fields.place = m.querySelector('#pPlace').value;
+      fields.duration = Number(m.querySelector('#pDur').value) || null;
+    } else if(k === 'event'){
+      fields.category = m.querySelector('#pCat').value;
+    } else {
+      let name = m.querySelector('#pName').value;
+      if(name === '__new__') name = m.querySelector('#pNewName').value;
+      name = (name || '').trim();
+      if(!name) return toast('Вкажіть ім\'я клієнта', 'error');
+      if(!data.settings.clientNames.includes(name)) data.settings.clientNames.push(name);
+      data.settings.archivedClients = (data.settings.archivedClients || []).filter(x => x !== name);
+      fields.clientName = name;
+      fields.lessonType = m.querySelector('#pLesson').value.trim();
+      fields.horseId = m.querySelector('#pcHorse').value || null;
+      fields.amount = Number(m.querySelector('#pAmount').value) || 0;
+    }
+    if(p){
+      Object.assign(p, fields, { date: d, updatedAt: Date.now() });
+      markDirty(); render(); toast('План збережено', 'ok'); return back();
+    }
+    let dates = [d], seriesId = null;
+    if(m.querySelector('#pRep').checked){
+      const until = m.querySelector('#pUntil').value;
+      if(!until || until < d) return toast('Вкажіть дату, до якої повторювати', 'error');
+      if(!wdSel.size) return toast('Оберіть хоча б один день тижня', 'error');
+      dates = [];
+      for(let cur = d; cur <= until && dates.length < 400; cur = addDays(cur, 1)){
+        if(wdSel.has((dateOf(cur).getDay() + 6) % 7)) dates.push(cur);
+      }
+      if(!dates.length) return toast('У цьому проміжку немає обраних днів тижня', 'error');
+      seriesId = uid();
+    }
+    const now = Date.now();
+    dates.forEach(dd => data.plans.push(Object.assign({ id: uid(), date: dd, done: false, seriesId, createdAt: now, updatedAt: now }, fields)));
+    markDirty(); render(); toast(dates.length > 1 ? 'Створено планів: ' + dates.length : 'План додано', 'ok');
+    back();
+  };
+}
+
+function copyPlansModal(presetDate, presetMode){
+  const html = '<h2>Копіювати плани</h2>' +
+    '<div class="field"><label>Що копіювати</label><select id="cpMode"><option value="day"' + (presetMode === 'day' ? ' selected' : '') + '>День</option><option value="week"' + (presetMode === 'day' ? '' : ' selected') + '>Тиждень (Пн–Нд)</option></select></div>' +
+    '<div class="field"><label>Звідки (будь-яка дата потрібного дня/тижня)</label><input type="date" id="cpSrc" value="' + presetDate + '"></div>' +
+    '<div class="field"><label>Куди (дата дня / будь-який день потрібного тижня)</label><input type="date" id="cpDst" value="' + addDays(presetDate, presetMode === 'day' ? 1 : 7) + '"></div>' +
+    '<p class="muted">Копіюються всі плани з часом і нотатками як невиконані. Вже існуючі плани в цільових днях не змінюються.</p>' +
+    '<div class="modal-foot"><button class="btn sec" id="cpCancel">Скасувати</button><button class="btn" id="cpGo">Копіювати</button></div>';
+  const m = showModal(html);
+  m.querySelector('#cpCancel').onclick = closeModal;
+  m.querySelector('#cpGo').onclick = () => {
+    const week = m.querySelector('#cpMode').value === 'week';
+    const src = m.querySelector('#cpSrc').value, dst = m.querySelector('#cpDst').value;
+    if(!src || !dst) return toast('Вкажіть обидві дати', 'error');
+    const from = week ? weekStart(src) : src, to = week ? weekStart(dst) : dst;
+    const offset = diffDays(to, from);
+    if(!offset) return toast('Джерело й ціль збігаються', 'error');
+    const last = week ? addDays(from, 6) : from;
+    const now = Date.now();
+    const copies = data.plans.filter(p => p.date >= from && p.date <= last).map(p => {
+      const c = Object.assign({}, p, { id: uid(), date: addDays(p.date, offset), done: false, doneAt: null, seriesId: null, createdAt: now, updatedAt: now });
+      return c;
+    });
+    if(!copies.length) return toast('У вибраному періоді планів немає', 'error');
+    data.plans.push(...copies);
+    markDirty(); closeModal(); render(); toast('Скопійовано планів: ' + copies.length, 'ok');
+  };
+}
+
+/* ---------- виконання плану: перенесення у щоденники / статистику тренувань ---------- */
+function runPlans(plans){
+  plans = plans.filter(p => !p.done);
+  if(!plans.length) return toast('У вибраних днях немає невиконаних планів');
+  const snap = data.sessions.slice();     // конфлікти рахуємо щодо записів, що були ДО запуску
+  const st = { created: 0, existed: 0, skipped: 0 };
+  const conflicts = [];
+  const markDone = p => { p.done = true; p.doneAt = Date.now(); p.updatedAt = Date.now(); };
+  const addSession = p => {
+    data.sessions.push({
+      id: uid(), horseId: p.horseId, date: p.date, workTypeId: p.workTypeId, place: p.place || '',
+      duration: p.duration || null, quality: null, intensity: null, notes: p.notes || '',
+      createdAt: Date.now(), updatedAt: Date.now(),
+    });
+    markDone(p); st.created++;
+  };
+  for(const p of plans){
+    if(p.kind === 'session'){
+      if(!horseById(p.horseId) || !wt(p.workTypeId)){ st.skipped++; continue; }
+      if(data.sessions.some(s => s.horseId === p.horseId && s.date === p.date && s.workTypeId === p.workTypeId)){ markDone(p); st.existed++; continue; }
+      const others = snap.filter(s => s.horseId === p.horseId && s.date === p.date);
+      if(others.length){ conflicts.push({ p, others }); continue; }
+      addSession(p);
+    } else if(p.kind === 'event'){
+      if(!horseById(p.horseId)){ st.skipped++; continue; }
+      if(data.events.some(e => e.horseId === p.horseId && e.date === p.date && e.category === p.category)){ markDone(p); st.existed++; continue; }
+      data.events.push({ id: uid(), horseId: p.horseId, date: p.date, category: p.category, notes: p.notes || '', updatedAt: Date.now() });
+      markDone(p); st.created++;
+    } else {
+      const lt = (p.lessonType || '').trim().toLowerCase();
+      if(data.clients.some(c => c.clientName === p.clientName && c.date === p.date && (c.lessonType || '').trim().toLowerCase() === lt && (c.horseId || null) === (p.horseId || null))){ markDone(p); st.existed++; continue; }
+      data.clients.push({
+        id: uid(), date: p.date, clientName: p.clientName, lessonType: p.lessonType || '', horseId: p.horseId || null,
+        amount: Number(p.amount) || 0, paid: false, notes: p.notes || '', updatedAt: Date.now(),
+      });
+      markDone(p); st.created++;
+    }
+  }
+  const finish = () => {
+    ui.planSelect = false; ui.planSel.clear();
+    markDirty(); render();
+    toast('Перенесено: ' + st.created + (st.existed ? ' · вже були в журналі: ' + st.existed : '') +
+      (st.skipped ? ' · пропущено: ' + st.skipped : ''), st.created || st.existed ? 'ok' : undefined);
+  };
+  if(!conflicts.length) return finish();
+
+  // вікно узгодження — усі конфлікти одним списком
+  const html = '<h2>Потрібне узгодження</h2>' +
+    '<p class="muted" style="margin-bottom:10px;">У цих коней у вказаний день у щоденнику вже є інші записи. Решту плану вже перенесено. Оберіть, що зробити з кожним випадком.</p>' +
+    conflicts.map((c, i) => '<div class="conf"><b>' + esc((horseById(c.p.horseId) || {}).name) + ' · ' + fmtDate(c.p.date) + '</b>' +
+      '<div class="muted">За планом: ' + esc((wt(c.p.workTypeId) || {}).name) + '</div>' +
+      '<div class="muted">Уже записано: ' + c.others.map(s => esc((wt(s.workTypeId) || {}).name || '?')).join(', ') + '</div>' +
+      '<div class="opts">' +
+      '<label><input type="radio" name="cf' + i + '" value="add" checked>Додати поруч</label>' +
+      '<label><input type="radio" name="cf' + i + '" value="replace">Замінити наявне записом із плану</label>' +
+      '<label><input type="radio" name="cf' + i + '" value="skip">Пропустити (план лишається невиконаним)</label></div></div>').join('') +
+    '<div class="modal-foot"><button class="btn sec" id="cfCancel">Скасувати</button><button class="btn" id="cfApply">Застосувати</button></div>';
+  const m = showModal(html);
+  m.querySelector('#cfCancel').onclick = () => { closeModal(); finish(); };
+  m.querySelector('#cfApply').onclick = () => {
+    conflicts.forEach((c, i) => {
+      const choice = (m.querySelector('input[name="cf' + i + '"]:checked') || {}).value;
+      if(choice === 'skip'){ st.skipped++; return; }
+      if(choice === 'replace'){
+        const ids = new Set(c.others.map(s => s.id));
+        c.others.forEach(s => markDeleted(s.id));
+        data.sessions = data.sessions.filter(s => !ids.has(s.id));
+      }
+      addSession(c.p);
+    });
+    closeModal(); finish();
+  };
 }
 
 /* ---------------- експорт / імпорт ---------------- */
@@ -1792,7 +2297,7 @@ function importJson(e){
 
 /* ---------------- bind + старт ---------------- */
 function bindView(){
-  [bindTracker, bindJournal, bindEvents, bindClients, bindStats, bindSettings].forEach(fn => {
+  [bindTracker, bindPlan, bindJournal, bindEvents, bindClients, bindStats, bindSettings].forEach(fn => {
     try{ fn(); } catch(e){ console.error('bind error:', fn.name, e); }
   });
 }
