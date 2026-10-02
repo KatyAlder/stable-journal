@@ -178,6 +178,7 @@ h3{font-size:15.5px; font-weight:800; margin-bottom:8px;}
 .wx{display:inline-flex; align-items:center;}
 .wx svg{width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
 .wx.rain{color:#4A86C5;} .wx.snow{color:#4FA6C0;} .wx.heat{color:#E0903A;} .wx.away{color:#C0668F;}
+.wxs{display:inline-flex; gap:3px;}
 .pcell.away{background-image:linear-gradient(180deg, rgba(192,102,143,.14), transparent 60%);}
 .wxbtn.on.away{border-color:#C0668F; background:rgba(192,102,143,.13);}
 .wxbtns{flex-wrap:wrap;}
@@ -479,6 +480,7 @@ function normalizeData(d){
   if(!d.settings.clientPlanColor) d.settings.clientPlanColor = '#F4D9A6';
   if(!Array.isArray(d.plans)) d.plans = [];
   if(!Array.isArray(d.weather)) d.weather = [];
+  d.weather.forEach(w => { if(w.type === 'away'){ w.type = null; w.away = true; } });
   if(!Array.isArray(d.settings.clientNames)) d.settings.clientNames = [];
   if(!Array.isArray(d.settings.archivedClients)) d.settings.archivedClients = [];
   // підхопити всі імена з наявних записів у реєстр
@@ -1913,9 +1915,10 @@ function viewPlan(){
     const iso = isoOf(y, m, d), ps = plansOnDay(iso), wx = weatherOn(iso);
     const overdue = iso < today && ps.some(p => !p.done);
     html += '<div class="pcell' + (iso === today ? ' today' : '') + (overdue ? ' overdue' : '') +
-      (ui.planSel.has(iso) ? ' sel' : '') + (wx ? ' ' + wx.type : '') + '" data-pday="' + iso + '">' +
+      (ui.planSel.has(iso) ? ' sel' : '') + (wx && wx.type ? ' ' + wx.type : (wx && wx.away ? ' away' : '')) + '" data-pday="' + iso + '">' +
       '<div class="ptop"><span class="dn">' + d + '</span>' +
-      (wx ? '<span class="wx ' + wx.type + '" title="' + WX[wx.type].name + '">' + WX[wx.type].icon + '</span>' : '') + '</div>' +
+      '<span class="wxs">' + (wx && wx.type ? '<span class="wx ' + wx.type + '" title="' + WX[wx.type].name + '">' + WX[wx.type].icon + '</span>' : '') +
+      (wx && wx.away ? '<span class="wx ' + (wx.type || 'away') + '" title="' + WX.away.name + '">' + WX.away.icon + '</span>' : '') + '</span></div>' +
       '<div class="pchips">' + ps.map(p => '<div class="pchip' + (p.kind === 'event' ? ' ev' : '') + (p.done ? ' done' : '') +
         '" style="background:' + esc(planColor(p)) + '" title="' + esc(planText(p)) + '">' + (p.done ? '✓ ' : '') +
         (p.time ? '<span class="tm">' + esc(p.time) + '</span>' : '') + esc(planText(p)) + '</div>').join('') + '</div>' +
@@ -1944,32 +1947,31 @@ function viewPlan(){
     '<div class="bx"><h3>Інше</h3>' +
       ln('#fff', 'Події коней', mp.filter(p => p.kind === 'event').length) +
       ln(data.settings.clientPlanColor, 'Тренування клієнтів', mp.filter(p => p.kind === 'client').length) +
-      Object.keys(WX).map(k => '<div class="ln"><span class="wx ' + k + '">' + WX[k].icon + '</span>' + WX[k].name + ' (днів)<b>' + wxm.filter(w => w.type === k).length + '</b></div>').join('') +
+      Object.keys(WX).map(k => '<div class="ln"><span class="wx ' + k + '">' + WX[k].icon + '</span>' + WX[k].name + ' (днів)<b>' + wxm.filter(w => k === 'away' ? w.away : w.type === k).length + '</b></div>').join('') +
     '</div></div></div>' + visitTrackerHTML(y, m);
   return html;
 }
 
 // трекер стайні: «була» = у цей день є запис (сесія, подія, клієнт) і день не позначено «Не на стайні»
-function visitDays(){
-  const s = new Set();
-  [...data.sessions, ...data.events, ...data.clients].forEach(r => s.add(r.date));
-  return s;
-}
+// трекер стайні: «була» = будь-який день до сьогодні включно, крім позначених «Не на стайні»
 function visitTrackerHTML(y, m){
-  const dim = daysInMonth(y, m), today = todayISO(), visits = visitDays();
-  const awayOn = iso => { const w = weatherOn(iso); return !!w && w.type === 'away'; };
-  const isIn = iso => visits.has(iso) && !awayOn(iso);
+  const dim = daysInMonth(y, m), today = todayISO();
+  const awayOn = iso => { const w = weatherOn(iso); return !!w && !!w.away; };
   let inM = 0, awayM = 0, cells = '';
   for(let d = 1; d <= dim; d++){
-    const iso = isoOf(y, m, d), away = awayOn(iso), vin = isIn(iso);
+    const iso = isoOf(y, m, d), away = awayOn(iso), vin = !away && iso <= today;
     if(vin) inM++; if(away) awayM++;
     cells += '<button class="vday' + (vin ? ' in' : '') + (away ? ' away' : '') + (iso > today ? ' future' : '') + (iso === today ? ' today' : '') +
       '" data-pday="' + iso + '" title="' + fmtDate(iso) + (vin ? ' — була на стайні' : away ? ' — не на стайні' : '') + '">' +
       (away ? WX.away.icon : d) + '</button>';
   }
+  const yStart = y + '-01-01', yEnd = y + '-12-31', last = today < yEnd ? today : yEnd;
   let inY = 0, awayY = 0;
-  visits.forEach(iso => { if(iso.slice(0,4) == y && !awayOn(iso)) inY++; });
-  data.weather.forEach(w => { if(w.type === 'away' && w.date.slice(0,4) == y) awayY++; });
+  data.weather.forEach(w => { if(w.away && w.date.slice(0,4) == y) awayY++; });
+  if(last >= yStart){
+    const awayPast = data.weather.filter(w => w.away && w.date >= yStart && w.date <= last).length;
+    inY = diffDays(last, yStart) + 1 - awayPast;
+  }
   return '<div class="card" style="margin-top:16px;"><h2>Трекер стайні — ' + MONTHS[m] + ' ' + y + '</h2>' +
     '<div class="statcards">' +
     '<div class="statcard"><div class="v">' + inM + '</div><div class="l">днів на стайні за місяць</div></div>' +
@@ -1977,8 +1979,8 @@ function visitTrackerHTML(y, m){
     '<div class="statcard"><div class="v">' + inY + '</div><div class="l">на стайні за ' + y + '</div></div>' +
     '<div class="statcard"><div class="v">' + awayY + '</div><div class="l">не на стайні за ' + y + '</div></div></div>' +
     '<div class="vtrack">' + cells + '</div>' +
-    '<div class="vlegend"><span><i style="background:var(--secondary);border-color:var(--secondary)"></i>була (є запис у щоденнику, подіях чи клієнтах)</span>' +
-    '<span><i style="background:rgba(192,102,143,.15);border-color:#C0668F"></i>не на стайні</span><span><i></i>без записів</span></div></div>';
+    '<div class="vlegend"><span><i style="background:var(--secondary);border-color:var(--secondary)"></i>була на стайні</span>' +
+    '<span><i style="background:rgba(192,102,143,.15);border-color:#C0668F"></i>не на стайні</span><span><i></i>майбутні дні</span></div></div>';
 }
 
 function plansOfDays(days){
@@ -2012,23 +2014,23 @@ function bindPlan(){
   });
 }
 
-function setWeather(iso, type){
-  const rec = weatherOn(iso);
-  if(rec && rec.type === type){
+function touchWeather(iso, fn){
+  let rec = weatherOn(iso);
+  if(!rec){ rec = { id: uid(), date: iso, type: null, away: false, updatedAt: 0 }; data.weather.push(rec); }
+  fn(rec); rec.updatedAt = Date.now();
+  if(!rec.type && !rec.away){
     markDeleted(rec.id);
     data.weather = data.weather.filter(w => w.id !== rec.id);
-  } else if(rec){
-    rec.type = type; rec.updatedAt = Date.now();
-  } else {
-    data.weather.push({ id: uid(), date: iso, type, updatedAt: Date.now() });
   }
   markDirty(); render();
 }
+const setWeather = (iso, type) => touchWeather(iso, r => { r.type = r.type === type ? null : type; });
+const toggleAway = iso => touchWeather(iso, r => { r.away = !r.away; });
 
 function planDayModal(iso){
   const ps = plansOnDay(iso), wx = weatherOn(iso);
   let html = '<h2>' + fmtDate(iso) + '</h2><div class="wxbtns">' + Object.keys(WX).map(k =>
-    '<button class="wxbtn ' + k + (wx && wx.type === k ? ' on' : '') + '" data-wx="' + k + '">' + WX[k].icon + WX[k].name + '</button>').join('') + '</div>';
+    '<button class="wxbtn ' + k + (wx && (k === 'away' ? wx.away : wx.type === k) ? ' on' : '') + '" data-wx="' + k + '">' + WX[k].icon + WX[k].name + '</button>').join('') + '</div>';
   html += ps.length ? ps.map(p => {
     const sub = planSub(p);
     return '<div class="plan-row' + (p.done ? ' done' : '') + '" style="border-left-color:' + esc(planColor(p)) + '">' +
@@ -2043,7 +2045,7 @@ function planDayModal(iso){
     (hasUndone ? '<button class="btn sec" id="pdDone">План виконано</button>' : '') +
     '<button class="btn" id="pdAdd">+ План</button></div>';
   const m = showModal(html);
-  m.querySelectorAll('[data-wx]').forEach(b => b.onclick = () => { setWeather(iso, b.dataset.wx); planDayModal(iso); });
+  m.querySelectorAll('[data-wx]').forEach(b => b.onclick = () => { if(b.dataset.wx === 'away') toggleAway(iso); else setWeather(iso, b.dataset.wx); planDayModal(iso); });
   m.querySelector('#pdAdd').onclick = () => planForm(null, iso, iso);
   if(ps.length) m.querySelector('#pdCopy').onclick = () => copyPlansModal(iso, 'day');
   if(hasUndone) m.querySelector('#pdDone').onclick = () => { closeModal(); runPlans(plansOfDays([iso])); };
