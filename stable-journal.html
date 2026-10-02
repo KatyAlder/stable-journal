@@ -2045,7 +2045,7 @@ function planDayModal(iso){
   html += ps.length ? ps.map(p => {
     const sub = planSub(p);
     return '<div class="plan-row' + (p.done ? ' done' : '') + '" style="border-left-color:' + esc(planColor(p)) + '">' +
-      '<div class="pt">' + (p.done ? '✓ ' : '') + (p.time ? '<b>' + esc(p.time) + (p.endTime ? '–' + esc(p.endTime) : '') + '</b> ' : '') + esc(planText(p)) +
+      '<div class="pt">' + (p.done ? '✓ ' : '') + (p.time ? '<b>' + esc(p.time) + (p.endTime ? '–' + esc(p.endTime) : '') + '</b> ' + (!p.endTime && effectiveEnd(p) ? '<span class="muted">до ' + effectiveEnd(p) + '</span> ' : '') : '') + esc(planText(p)) +
       (p.kind === 'event' ? ' <span class="muted">(подія)</span>' : '') + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>' +
       (p.done ? '<button class="iconbtn" data-pun="' + p.id + '" title="Повернути у невиконані">' + IC_UNDO + '</button>' : '') +
       '<button class="iconbtn" data-ped="' + p.id + '">' + IC.edit + '</button>' +
@@ -2276,6 +2276,15 @@ async function gcFetch(path, opts = {}, tries = 0){
 const gcalEventId = p => 'sj' + p.id.toLowerCase().replace(/[^0-9a-v]/g, '');   // base32hex, вимога Calendar API
 const hashStr = s => { let h = 5381; for(let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
 
+// кінець плану: вказаний вручну; інакше (якщо немає і тривалості) — початок наступного плану того ж дня, якщо він за ≤ 90 хв
+function effectiveEnd(p){
+  if(p.endTime) return p.endTime;
+  if(!p.time || p.duration) return '';
+  const s = toMin(p.time);
+  const next = Math.min(...data.plans.filter(x => x.date === p.date && x.time && toMin(x.time) > s).map(x => toMin(x.time)));
+  return next - s <= 90 ? fromMin(next) : '';
+}
+
 function planCalBody(p){
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Kyiv';
   const lines = [];
@@ -2289,7 +2298,8 @@ function planCalBody(p){
   const body = { summary: (p.done ? '✓ ' : '') + planText(p), description: lines.join('\n') };
   if(p.time){
     const s = toMin(p.time);
-    let e = p.endTime ? toMin(p.endTime) : s + (p.duration || 60);
+    const ee = effectiveEnd(p);
+    let e = ee ? toMin(ee) : s + (p.duration || 60);
     if(e <= s) e = s + 1;
     const at = (day, min) => ({ dateTime: addDays(p.date, day) + 'T' + fromMin(min) + ':00', timeZone: tz });
     body.start = at(0, s); body.end = at(Math.floor(e / 1440), e);
@@ -2364,7 +2374,7 @@ function gcalModal(){
     (data.settings.gcalCalendarId ? '' : ' (його буде створено автоматично)') + '. Основний календар і решту календарів застосунок не бачить і не змінює.</p>' +
     '<div class="field"><label>Які плани</label><select id="gcRange">' +
       '<option value="month">Показаний місяць (' + esc(ym) + ')</option><option value="future">Від сьогодні й далі</option><option value="all">Усі плани</option></select></div>' +
-    '<p class="muted" style="font-size:12.5px;">Повторний імпорт оновлює наявні події, а не дублює їх; плани, видалені в журналі, зникнуть і з календаря. Плани без часу стають подіями на весь день, без кінця — тривалістю з плану або 1 година. Вартість клієнтів не передається.</p>' +
+    '<p class="muted" style="font-size:12.5px;">Повторний імпорт оновлює наявні події, а не дублює їх; плани, видалені в журналі, зникнуть і з календаря. Плани без часу стають подіями на весь день, без кінця — до початку наступного плану, якщо він за ≤ 90 хв, інакше тривалістю з плану або 1 година. Вартість клієнтів не передається.</p>' +
     '<p id="gcStatus" style="margin-top:10px;font-weight:700;min-height:20px;"></p>' +
     '<div class="modal-foot"><button class="btn sec" id="gcCancel">Закрити</button><button class="btn" id="gcGo">Імпортувати</button></div>';
   const m = showModal(html);
