@@ -177,7 +177,19 @@ h3{font-size:15.5px; font-weight:800; margin-bottom:8px;}
 .pcell.heat{background-image:linear-gradient(180deg, rgba(224,144,58,.12), transparent 60%);}
 .wx{display:inline-flex; align-items:center;}
 .wx svg{width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
-.wx.rain{color:#4A86C5;} .wx.snow{color:#4FA6C0;} .wx.heat{color:#E0903A;}
+.wx.rain{color:#4A86C5;} .wx.snow{color:#4FA6C0;} .wx.heat{color:#E0903A;} .wx.away{color:#C0668F;}
+.pcell.away{background-image:linear-gradient(180deg, rgba(192,102,143,.14), transparent 60%);}
+.wxbtn.on.away{border-color:#C0668F; background:rgba(192,102,143,.13);}
+.wxbtns{flex-wrap:wrap;}
+.vtrack{display:grid; grid-template-columns:repeat(auto-fill,minmax(30px,1fr)); gap:5px; margin-top:10px;}
+.vday{height:34px; border-radius:8px; border:1.5px solid var(--border); background:#fff; font-size:12px; font-weight:700; color:var(--text-soft); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;}
+.vday.in{background:var(--secondary); border-color:var(--secondary); color:var(--text);}
+.vday.away{background:rgba(192,102,143,.15); border-color:#C0668F; color:#C0668F;}
+.vday.away svg{width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round;}
+.vday.future{opacity:.45;}
+.vday.today{outline:2px solid var(--text); outline-offset:1px;}
+.vlegend{display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:var(--text-soft); margin-top:10px;}
+.vlegend i{display:inline-block; width:11px; height:11px; border-radius:4px; margin-right:5px; vertical-align:-1px; border:1.5px solid var(--border); background:#fff;}
 .pchips{display:flex; flex-direction:column; gap:3px; margin-top:3px;}
 .pchip{
   font-size:11px; font-weight:700; line-height:1.25; padding:2px 6px; border-radius:6px; color:var(--text);
@@ -1589,23 +1601,23 @@ function viewStats(){
 
 // блок «Погода» у статистиці: дні з дощем/снігом/спекою і скільки з них минуло без роботи
 function weatherStatsHTML(y){
-  const recs = data.weather.filter(w => w.date.slice(0,4) == y);
+  const recs = data.weather.filter(w => w.date.slice(0,4) == y && WX_BAD.includes(w.type));
   let html = '<div class="card"><h2>Погана погода — ' + y + '</h2>';
   if(!recs.length) return html + '<p class="muted">Позначок погоди за цей рік ще немає. Ставте їх у вкладці «Місяць» — краплею, сніжинкою чи сонцем у дні.</p></div>';
   const workDays = new Set(sessionsOf(ui.horseId).filter(s => !(wt(s.workTypeId) || {}).rest).map(s => s.date));
   const today = todayISO();
   const noWork = r => r.date <= today && !workDays.has(r.date);
-  html += '<div class="statcards">' + Object.keys(WX).map(k => {
+  html += '<div class="statcards">' + WX_BAD.map(k => {
     const rs = recs.filter(r => r.type === k);
     return '<div class="statcard"><div class="v"><span class="wx ' + k + '" style="vertical-align:-2px;margin-right:6px;">' + WX[k].icon + '</span>' + rs.length + '</div>' +
       '<div class="l">' + WX[k].name + ' — днів' + (horse() ? ' · без роботи (' + esc(horse().name) + '): ' + rs.filter(noWork).length : '') + '</div></div>';
   }).join('') + '</div>';
   html += '<div style="overflow-x:auto;"><table class="tbl"><tr><th>Місяць</th>' +
-    Object.keys(WX).map(k => '<th>' + WX[k].name + '</th>').join('') + '<th>Без роботи' + (horse() ? ' (' + esc(horse().name) + ')' : '') + '</th></tr>';
+    WX_BAD.map(k => '<th>' + WX[k].name + '</th>').join('') + '<th>Без роботи' + (horse() ? ' (' + esc(horse().name) + ')' : '') + '</th></tr>';
   for(let m=0; m<12; m++){
     const mr = recs.filter(r => Number(r.date.slice(5,7)) - 1 === m);
     if(!mr.length) continue;
-    html += '<tr><td>' + MONTHS[m] + '</td>' + Object.keys(WX).map(k => '<td>' + (mr.filter(r => r.type === k).length || '—') + '</td>').join('') +
+    html += '<tr><td>' + MONTHS[m] + '</td>' + WX_BAD.map(k => '<td>' + (mr.filter(r => r.type === k).length || '—') + '</td>').join('') +
       '<td>' + mr.filter(noWork).length + ' з ' + mr.length + '</td></tr>';
   }
   return html + '</table></div></div>';
@@ -1842,8 +1854,10 @@ const WX = {
   rain: { name:'Дощ',   icon:'<svg viewBox="0 0 24 24"><path d="M12 2.5C12 2.5 5 10 5 14.5a7 7 0 0 0 14 0C19 10 12 2.5 12 2.5z"/></svg>' },
   snow: { name:'Сніг',  icon:'<svg viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/><line x1="3.3" y1="7" x2="20.7" y2="17"/><line x1="3.3" y1="17" x2="20.7" y2="7"/></svg>' },
   heat: { name:'Спека', icon:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="6.7" y2="6.7"/><line x1="17.3" y1="17.3" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="6.7" y2="17.3"/><line x1="17.3" y1="6.7" x2="19.1" y2="4.9"/></svg>' },
+  away: { name:'Не на стайні', icon:'<svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M9 8V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><line x1="3" y1="14" x2="21" y2="14"/></svg>' },
 };
-const IC_UNDO = '<svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
+const WX_BAD = ['rain','snow','heat'];   // «погана погода» у статистиці; away — окрема позначка
+const IC_UNDO ='<svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
 const PLAN_KINDS = { session:'Сесія коня', event:'Подія коня', client:'Тренування клієнта' };
 
 const isoOf = (y, m, d) => y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
@@ -1931,8 +1945,40 @@ function viewPlan(){
       ln('#fff', 'Події коней', mp.filter(p => p.kind === 'event').length) +
       ln(data.settings.clientPlanColor, 'Тренування клієнтів', mp.filter(p => p.kind === 'client').length) +
       Object.keys(WX).map(k => '<div class="ln"><span class="wx ' + k + '">' + WX[k].icon + '</span>' + WX[k].name + ' (днів)<b>' + wxm.filter(w => w.type === k).length + '</b></div>').join('') +
-    '</div></div></div>';
+    '</div></div></div>' + visitTrackerHTML(y, m);
   return html;
+}
+
+// трекер стайні: «була» = у цей день є запис (сесія, подія, клієнт) і день не позначено «Не на стайні»
+function visitDays(){
+  const s = new Set();
+  [...data.sessions, ...data.events, ...data.clients].forEach(r => s.add(r.date));
+  return s;
+}
+function visitTrackerHTML(y, m){
+  const dim = daysInMonth(y, m), today = todayISO(), visits = visitDays();
+  const awayOn = iso => { const w = weatherOn(iso); return !!w && w.type === 'away'; };
+  const isIn = iso => visits.has(iso) && !awayOn(iso);
+  let inM = 0, awayM = 0, cells = '';
+  for(let d = 1; d <= dim; d++){
+    const iso = isoOf(y, m, d), away = awayOn(iso), vin = isIn(iso);
+    if(vin) inM++; if(away) awayM++;
+    cells += '<button class="vday' + (vin ? ' in' : '') + (away ? ' away' : '') + (iso > today ? ' future' : '') + (iso === today ? ' today' : '') +
+      '" data-pday="' + iso + '" title="' + fmtDate(iso) + (vin ? ' — була на стайні' : away ? ' — не на стайні' : '') + '">' +
+      (away ? WX.away.icon : d) + '</button>';
+  }
+  let inY = 0, awayY = 0;
+  visits.forEach(iso => { if(iso.slice(0,4) == y && !awayOn(iso)) inY++; });
+  data.weather.forEach(w => { if(w.type === 'away' && w.date.slice(0,4) == y) awayY++; });
+  return '<div class="card" style="margin-top:16px;"><h2>Трекер стайні — ' + MONTHS[m] + ' ' + y + '</h2>' +
+    '<div class="statcards">' +
+    '<div class="statcard"><div class="v">' + inM + '</div><div class="l">днів на стайні за місяць</div></div>' +
+    '<div class="statcard"><div class="v">' + awayM + '</div><div class="l">днів не на стайні за місяць</div></div>' +
+    '<div class="statcard"><div class="v">' + inY + '</div><div class="l">на стайні за ' + y + '</div></div>' +
+    '<div class="statcard"><div class="v">' + awayY + '</div><div class="l">не на стайні за ' + y + '</div></div></div>' +
+    '<div class="vtrack">' + cells + '</div>' +
+    '<div class="vlegend"><span><i style="background:var(--secondary);border-color:var(--secondary)"></i>була (є запис у щоденнику, подіях чи клієнтах)</span>' +
+    '<span><i style="background:rgba(192,102,143,.15);border-color:#C0668F"></i>не на стайні</span><span><i></i>без записів</span></div></div>';
 }
 
 function plansOfDays(days){
