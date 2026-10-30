@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Стайня — журнал коневласника</title>
+<title>Стайня — журнал коневласниці</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -116,7 +116,10 @@ h3{font-size:15.5px; font-weight:800; margin-bottom:8px;}
 .yearnav button:hover{background:var(--primary-soft);color:var(--text);}
 
 .grid-wrap{overflow-x:auto; padding-bottom:6px;}
-.ygrid{display:grid; grid-template-columns:84px repeat(31, 20px); gap:2px; width:max-content;}
+.ygrid{display:grid; grid-template-columns:84px repeat(31, 20px) 30px 30px; gap:2px; width:max-content;}
+.ygrid .scnt, .ygrid .sleft{display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800;}
+.ygrid .scnt{color:var(--text-soft); margin-left:6px;}
+.ygrid .sleft{color:var(--text-soft); opacity:.45;}
 .ygrid .mlabel{
   position:sticky; left:0; background:var(--surface); z-index:2; font-size:12.5px; font-weight:700;
   color:var(--text-soft); display:flex; align-items:center; padding-left:4px; padding-right:10px; justify-content:flex-end;
@@ -208,6 +211,10 @@ h3{font-size:15.5px; font-weight:800; margin-bottom:8px;}
 .psum .ln{display:flex; align-items:center; gap:8px; font-size:13.5px; padding:2px 0;}
 .psum .ln .sw{width:12px; height:12px; border-radius:4px; flex-shrink:0;}
 .psum .ln b{margin-left:auto;}
+.psum .ln .c2{width:84px; text-align:right; flex-shrink:0;}
+.psum .ln b.c2{margin-left:0;}
+.psum .ln b.c2.plan{color:var(--text-soft);}
+.psum .ln.hd2{justify-content:flex-end; font-size:11.5px; font-weight:700; color:var(--text-soft); padding-bottom:4px;}
 .plan-row{display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-left-width:6px; border-radius:10px; padding:7px 9px; margin-bottom:7px; background:#fff;}
 .plan-row.done{opacity:.6;}
 .plan-row .pt{flex:1; min-width:0; font-size:14px;}
@@ -350,7 +357,7 @@ table.tbl{width:100%; border-collapse:collapse; font-size:14px;}
   .bottomnav button.active{color:#7E6BA8;}
   .hdr-inner{padding:8px 12px;}
   .pix{width:17px;height:17px;}
-  .ygrid{grid-template-columns:50px repeat(31, 17px);}
+  .ygrid{grid-template-columns:50px repeat(31, 17px) 26px 26px;}
   .mfull{display:none;} .mabbr{display:inline;}
   main{padding:14px 12px 86px;}
 }
@@ -377,7 +384,7 @@ table.tbl{width:100%; border-collapse:collapse; font-size:14px;}
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 /* =================================================================
-   СТАЙНЯ — особистий журнал коневласника
+   СТАЙНЯ — особистий журнал коневласниці
    Налаштування Google Drive: вставте свій Client ID нижче.
    Поки Client ID порожній — додаток працює локально (в пам'яті),
    використовуйте експорт/імпорт JSON для збереження.
@@ -400,8 +407,9 @@ const ui = {
   trackerMode: 'year',
   trackerYear: new Date().getFullYear(),
   trackerMonth: new Date().getMonth(),
-  jFilters: { year:'all', month:'all', types:[], place:'all', q:'all', durMin:'' },
-  cFilters: { month:'all', name:'', horse:'all' },
+  // фільтри за замовчуванням закріплені на поточному місяці (скидаються при кожному відкритті)
+  jFilters: { year:String(new Date().getFullYear()), month:String(new Date().getMonth()+1).padStart(2,'0'), types:[], place:'all', q:'all', durMin:'' },
+  cFilters: { month:new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0'), name:'', horse:'all' },
   statsYear: new Date().getFullYear(),
   notesOpen: false,
   clientsView: 'list',
@@ -729,6 +737,7 @@ async function connectDrive(silent){
   saveAuthState();                    // п.1 — фіксуємо «увійшов»
   setSync('ok','збережено');
   render();
+  try{ awayBackfill(); } catch(e){ console.error('away backfill:', e); }
 }
 
 async function signIn(){
@@ -915,15 +924,24 @@ function viewTracker(){
     html += '<div class="grid-wrap"><div class="ygrid">';
     html += '<div class="mlabel"></div>';
     for(let d=1; d<=31; d++) html += '<div class="dlabel">' + d + '</div>';
+    html += '<div></div><div></div>';
+    const curY = new Date().getFullYear(), curM = new Date().getMonth();
     for(let m=0; m<12; m++){
       html += '<div class="mlabel"><span class="mfull">' + MONTHS[m] + '</span><span class="mabbr">' + MONTHS_AB[m] + '</span></div>';
       const dim = daysInMonth(y, m);
+      const ym = y + '-' + String(m+1).padStart(2,'0');
+      const workN = sessionsOf(ui.horseId).filter(s => s.date.slice(0,7) === ym && !(wt(s.workTypeId) || {}).rest).length;
+      const isCur = y === curY && m === curM;
+      // «лишилось днів» — тільки для поточного місяця, враховуючи сьогодні
+      const leftN = isCur ? dim - new Date().getDate() + 1 : null;
       for(let d=1; d<=31; d++){
         if(d > dim){ html += '<div class="pix void"></div>'; continue; }
         const iso = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
         const sess = sessionsOnDay(ui.horseId, iso);
         html += '<div class="pix' + (iso===today?' today':'') + '" data-day="' + iso + '" style="' + pixStyle(sess) + '" title="' + fmtDateShort(iso) + '"></div>';
       }
+      html += '<div class="scnt" title="Робочих сесій за місяць">' + (workN || isCur ? workN : '') + '</div>' +
+        '<div class="sleft" title="Днів до кінця місяця (з сьогоднішнім)">' + (leftN !== null ? leftN : '') + '</div>';
     }
     html += '</div></div>';
   } else {
@@ -1189,7 +1207,7 @@ function eventForm(id, presetDate){
 function viewJournal(){
   if(!horse()) return '<div class="card">Додайте коня в Налаштуваннях</div>';
   const all = sessionsOf(ui.horseId);
-  const years = [...new Set(all.map(s => s.date.slice(0,4)))].sort().reverse();
+  const years = [...new Set([...all.map(s => s.date.slice(0,4)), String(new Date().getFullYear())])].sort().reverse();
   const f = ui.jFilters;
   let list = all.filter(s => {
     if(f.year !== 'all' && s.date.slice(0,4) !== f.year) return false;
@@ -1316,7 +1334,7 @@ function viewClients(){
   const total = list.reduce((s,c) => s + (Number(c.amount) || 0), 0);
   const paidTotal = list.reduce((s,c) => s + (c.paid ? (Number(c.amount) || 0) : 0), 0);
   const unpaidTotal = total - paidTotal;
-  const months = [...new Set(data.clients.map(c => c.date.slice(0,7)))].sort().reverse();
+  const months = [...new Set([...data.clients.map(c => c.date.slice(0,7)), todayISO().slice(0,7)])].sort().reverse();
 
   let html = head +
     '<div class="filters">' +
@@ -1940,19 +1958,30 @@ function viewPlan(){
   // підсумок місяця
   const ym = y + '-' + String(m+1).padStart(2,'0');
   const mp = data.plans.filter(p => p.date.slice(0,7) === ym);
-  const sess = mp.filter(p => p.kind === 'session');
+  // «Виконано» — з піксельного календаря (робочі сесії), «Заплановано» — невиконані плани від сьогодні
+  const isRest = id => !!(wt(id) || {}).rest;
+  const doneS = data.sessions.filter(s => s.date.slice(0,7) === ym && !isRest(s.workTypeId));
+  const planS = mp.filter(p => p.kind === 'session' && !p.done && p.date >= today && !isRest(p.workTypeId));
   const cnt = (arr, keyFn) => { const mp2 = new Map(); arr.forEach(p => { const k = keyFn(p); mp2.set(k, (mp2.get(k) || 0) + 1); }); return mp2; };
-  const byHorse = cnt(sess, p => p.horseId), byType = cnt(sess, p => p.workTypeId);
+  const pairs = (keyFn) => {
+    const a = cnt(doneS, keyFn), b = cnt(planS, keyFn);
+    return [...new Set([...a.keys(), ...b.keys()])].map(id => [id, a.get(id) || 0, b.get(id) || 0]);
+  };
+  const byHorse = pairs(s => s.horseId), byType = pairs(s => s.workTypeId);
   const wxm = data.weather.filter(w => w.date.slice(0,7) === ym);
   const ln = (color, name, n) => '<div class="ln"><span class="sw" style="background:' + esc(color) + '"></span>' + esc(name) + '<b>' + n + '</b></div>';
-  html += '<div class="sum-banner" style="margin-top:16px;">Заплановано сесій на місяць: <span style="font-size:19px;">' + sess.length + '</span>' +
-    '<span class="muted" style="margin-left:auto;font-weight:700;">виконано: ' + sess.filter(p => p.done).length + '</span></div>' +
+  const ln2 = (color, name, a, b) => '<div class="ln"><span class="sw" style="background:' + esc(color) + '"></span>' + esc(name) +
+    '<b class="c2">' + a + '</b><b class="c2 plan">' + b + '</b></div>';
+  const hd2 = '<div class="ln hd2"><span class="c2">Виконано</span><span class="c2">Заплановано</span></div>';
+  html += '<div class="sum-banner" style="margin-top:16px;">Сесій за місяць' +
+    '<span style="margin-left:auto;">виконано: <span style="font-size:19px;">' + doneS.length + '</span></span>' +
+    '<span class="muted" style="margin-left:14px;font-weight:700;">заплановано: <span style="font-size:19px;">' + planS.length + '</span></span></div>' +
     '<div class="psum">' +
-    '<div class="bx"><h3>Сесії по конях</h3>' + ([...byHorse].length
-      ? [...byHorse].map(([id, n]) => ln((horseById(id) || {}).color || '#ddd', (horseById(id) || {}).name || '?', n)).join('')
+    '<div class="bx"><h3>Сесії по конях</h3>' + (byHorse.length
+      ? hd2 + byHorse.map(([id, a, b]) => ln2((horseById(id) || {}).color || '#ddd', (horseById(id) || {}).name || '?', a, b)).join('')
       : '<p class="muted">—</p>') + '</div>' +
-    '<div class="bx"><h3>За типами роботи</h3>' + ([...byType].length
-      ? [...byType].map(([id, n]) => ln((wt(id) || {}).color || '#ddd', (wt(id) || {}).name || '?', n)).join('')
+    '<div class="bx"><h3>За типами роботи</h3>' + (byType.length
+      ? hd2 + byType.map(([id, a, b]) => ln2((wt(id) || {}).color || '#ddd', (wt(id) || {}).name || '?', a, b)).join('')
       : '<p class="muted">—</p>') + '</div>' +
     '<div class="bx"><h3>Інше</h3>' +
       ln('#fff', 'Події коней', mp.filter(p => p.kind === 'event').length) +
@@ -1975,19 +2004,11 @@ function visitTrackerHTML(y, m){
       '" data-pday="' + iso + '" title="' + fmtDate(iso) + (vin ? ' — була на стайні' : away ? ' — не на стайні' : '') + '">' +
       (away ? WX.away.icon : d) + '</button>';
   }
-  const yStart = y + '-01-01', yEnd = y + '-12-31', last = today < yEnd ? today : yEnd;
-  let inY = 0, awayY = 0;
-  data.weather.forEach(w => { if(w.away && w.date.slice(0,4) == y) awayY++; });
-  if(last >= yStart){
-    const awayPast = data.weather.filter(w => w.away && w.date >= yStart && w.date <= last).length;
-    inY = diffDays(last, yStart) + 1 - awayPast;
-  }
   return '<div class="card" style="margin-top:16px;"><h2>Трекер стайні — ' + MONTHS[m] + ' ' + y + '</h2>' +
     '<div class="statcards">' +
     '<div class="statcard"><div class="v">' + inM + '</div><div class="l">днів на стайні за місяць</div></div>' +
     '<div class="statcard"><div class="v">' + awayM + '</div><div class="l">днів не на стайні за місяць</div></div>' +
-    '<div class="statcard"><div class="v">' + inY + '</div><div class="l">на стайні за ' + y + '</div></div>' +
-    '<div class="statcard"><div class="v">' + awayY + '</div><div class="l">не на стайні за ' + y + '</div></div></div>' +
+    '</div>' +
     '<div class="vtrack">' + cells + '</div>' +
     '<div class="vlegend"><span><i style="background:var(--secondary);border-color:var(--secondary)"></i>була на стайні</span>' +
     '<span><i style="background:rgba(192,102,143,.15);border-color:#C0668F"></i>не на стайні</span><span><i></i>майбутні дні</span></div></div>';
@@ -2036,7 +2057,91 @@ function touchWeather(iso, fn){
   markDirty(); render();
 }
 const setWeather = (iso, type) => touchWeather(iso, r => { r.type = r.type === type ? null : type; });
-const toggleAway = iso => touchWeather(iso, r => { r.away = !r.away; });
+const toggleAway = (iso, done) => {
+  const turningOn = !(weatherOn(iso) || {}).away;
+  touchWeather(iso, r => { r.away = !r.away; });
+  if(turningOn) awaySync([iso], done);
+  else { awayUnsync(iso); if(done) done(); }
+};
+
+/* «Не на стайні» → вихідний у пікселях усіх коней на цей день */
+const isRestWT = id => !!(wt(id) || {}).rest;
+function restWorkType(){ return data.workTypes.find(w => w.rest && !w.hidden) || data.workTypes.find(w => w.rest); }
+
+function awayUnsync(iso){
+  const gone = data.sessions.filter(s => s.date === iso && s.autoAway && isRestWT(s.workTypeId));
+  if(!gone.length) return;
+  const ids = new Set(gone.map(s => s.id));
+  gone.forEach(s => markDeleted(s.id));
+  data.sessions = data.sessions.filter(s => !ids.has(s.id));
+  markDirty(); render();
+}
+
+function awaySync(dates, done){
+  const rw = restWorkType();
+  if(!rw){ toast('Немає типу роботи «Відпочинок» — позначте його в налаштуваннях', 'error'); if(done) done(); return false; }
+  const snap = data.sessions.slice();
+  const conflicts = [];
+  let added = 0;
+  const addRest = (horseId, iso) => {
+    data.sessions.push({
+      id: uid(), horseId, date: iso, workTypeId: rw.id, place: '', duration: null, quality: null, intensity: null,
+      notes: '', autoAway: true, createdAt: Date.now(), updatedAt: Date.now(),
+    });
+    added++;
+  };
+  for(const iso of dates){
+    for(const h of activeHorses()){
+      const ex = snap.filter(s => s.horseId === h.id && s.date === iso);
+      if(!ex.length) addRest(h.id, iso);
+      else {
+        const work = ex.filter(s => !isRestWT(s.workTypeId));
+        if(work.length) conflicts.push({ h, iso, work });
+      }
+    }
+  }
+  const finish = () => {
+    markDirty(); render();
+    if(added) toast('Вихідні в пікселях: ' + added, 'ok');
+    if(done) done();
+  };
+  if(!conflicts.length){ finish(); return true; }
+
+  const html = '<h2>Потрібне узгодження</h2>' +
+    '<p class="muted" style="margin-bottom:10px;">У цих коней у дні «не на стайні» вже є робочі записи. Решту пікселів уже позначено вихідним. Оберіть, що зробити з кожним випадком.</p>' +
+    conflicts.map((c, i) => '<div class="conf"><b>' + esc(c.h.name) + ' · ' + fmtDate(c.iso) + '</b>' +
+      '<div class="muted">Уже записано: ' + c.work.map(s => esc((wt(s.workTypeId) || {}).name || '?')).join(', ') + '</div>' +
+      '<div class="opts">' +
+      '<label><input type="radio" name="af' + i + '" value="skip" checked>Залишити як є</label>' +
+      '<label><input type="radio" name="af' + i + '" value="replace">Замінити на вихідний</label>' +
+      '<label><input type="radio" name="af' + i + '" value="add">Додати вихідний поруч</label></div></div>').join('') +
+    '<div class="modal-foot"><button class="btn sec" id="afCancel">Залишити все як є</button><button class="btn" id="afApply">Застосувати</button></div>';
+  const m = showModal(html);
+  m.querySelector('#afCancel').onclick = () => { closeModal(); finish(); };
+  m.querySelector('#afApply').onclick = () => {
+    conflicts.forEach((c, i) => {
+      const choice = (m.querySelector('input[name="af' + i + '"]:checked') || {}).value;
+      if(choice === 'skip') return;
+      if(choice === 'replace'){
+        const ids = new Set(c.work.map(s => s.id));
+        c.work.forEach(s => markDeleted(s.id));
+        data.sessions = data.sessions.filter(s => !ids.has(s.id));
+      }
+      addRest(c.h.id, c.iso);
+    });
+    closeModal(); finish();
+  };
+  return true;
+}
+
+// одноразово: уже позначені «не на стайні» дні проганяємо через те саме вікно узгодження
+function awayBackfill(){
+  if(data.settings.awayBackfilled) return;
+  const dates = [...new Set(data.weather.filter(w => w.away).map(w => w.date))].sort();
+  if(!restWorkType()) return;
+  data.settings.awayBackfilled = true; data.meta.updatedAt = Date.now();
+  if(dates.length) awaySync(dates); else markDirty();
+}
 
 function planDayModal(iso){
   const ps = plansOnDay(iso), wx = weatherOn(iso);
@@ -2056,7 +2161,7 @@ function planDayModal(iso){
     (hasUndone ? '<button class="btn sec" id="pdDone">План виконано</button>' : '') +
     '<button class="btn" id="pdAdd">+ План</button></div>';
   const m = showModal(html);
-  m.querySelectorAll('[data-wx]').forEach(b => b.onclick = () => { if(b.dataset.wx === 'away') toggleAway(iso); else setWeather(iso, b.dataset.wx); planDayModal(iso); });
+  m.querySelectorAll('[data-wx]').forEach(b => b.onclick = () => { if(b.dataset.wx === 'away'){ toggleAway(iso, () => planDayModal(iso)); return; } setWeather(iso, b.dataset.wx); planDayModal(iso); });
   m.querySelector('#pdAdd').onclick = () => planForm(null, iso, iso);
   if(ps.length) m.querySelector('#pdCopy').onclick = () => copyPlansModal(iso, 'day');
   if(hasUndone) m.querySelector('#pdDone').onclick = () => { closeModal(); runPlans(plansOfDays([iso])); };
