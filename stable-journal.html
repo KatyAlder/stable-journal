@@ -211,6 +211,7 @@ h3{font-size:15.5px; font-weight:800; margin-bottom:8px;}
 .psum .ln{display:flex; align-items:center; gap:8px; font-size:13.5px; padding:2px 0;}
 .psum .ln .sw{width:12px; height:12px; border-radius:4px; flex-shrink:0;}
 .psum .ln b{margin-left:auto;}
+.psum .ln .nm{flex:1; min-width:0;}
 .psum .ln .c2{width:84px; text-align:right; flex-shrink:0;}
 .psum .ln b.c2{margin-left:0;}
 .psum .ln b.c2.plan{color:var(--text-soft);}
@@ -1970,7 +1971,7 @@ function viewPlan(){
   const byHorse = pairs(s => s.horseId), byType = pairs(s => s.workTypeId);
   const wxm = data.weather.filter(w => w.date.slice(0,7) === ym);
   const ln = (color, name, n) => '<div class="ln"><span class="sw" style="background:' + esc(color) + '"></span>' + esc(name) + '<b>' + n + '</b></div>';
-  const ln2 = (color, name, a, b) => '<div class="ln"><span class="sw" style="background:' + esc(color) + '"></span>' + esc(name) +
+  const ln2 = (color, name, a, b) => '<div class="ln"><span class="sw" style="background:' + esc(color) + '"></span><span class="nm">' + esc(name) + '</span>' +
     '<b class="c2">' + a + '</b><b class="c2 plan">' + b + '</b></div>';
   const hd2 = '<div class="ln hd2"><span class="c2">Виконано</span><span class="c2">Заплановано</span></div>';
   html += '<div class="sum-banner" style="margin-top:16px;">Сесій за місяць' +
