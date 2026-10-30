@@ -739,6 +739,7 @@ async function connectDrive(silent){
   setSync('ok','збережено');
   render();
   try{ awayBackfill(); } catch(e){ console.error('away backfill:', e); }
+  try{ planBackfill(); } catch(e){ console.error('plan backfill:', e); }
 }
 
 async function signIn(){
@@ -2133,6 +2134,57 @@ function awaySync(dates, done){
     closeModal(); finish();
   };
   return true;
+}
+
+/* Піксельний щоденник / події / клієнти → «Місяць»: минулі дні поточного місяця, яких бракує в плані,
+   дописуються виконаними планами (час-заглушка з 8:00 по годині). Час і порядок наявних планів не враховуються. */
+function planBackfill(){
+  const today = todayISO(), from = today.slice(0,7) + '-01';
+  if(today <= from) return;
+  const synced = data.settings.planSynced || (data.settings.planSynced = {});
+  const inRange = d => d >= from && d < today;
+  const byDay = {};
+  const bucket = (iso, k) => ((byDay[iso] || (byDay[iso] = { session: [], event: [], client: [] }))[k]);
+  data.sessions.filter(s => inRange(s.date) && !synced[s.id] && horseById(s.horseId) && wt(s.workTypeId) && !wt(s.workTypeId).rest)
+    .sort((a,b) => (a.createdAt||0) - (b.createdAt||0)).forEach(s => bucket(s.date, 'session').push(s));
+  data.events.filter(e => inRange(e.date) && !synced[e.id] && horseById(e.horseId)).forEach(e => bucket(e.date, 'event').push(e));
+  data.clients.filter(c => inRange(c.date) && !synced[c.id]).forEach(c => bucket(c.date, 'client').push(c));
+  const days = Object.keys(byDay).sort();
+  if(!days.length) return;
+
+  const now = Date.now();
+  const lt = x => (x || '').trim().toLowerCase();
+  let created = 0, matched = 0;
+  for(const iso of days){
+    let hour = 8;
+    const dayPlans = data.plans.filter(p => p.date === iso);
+    const complete = p => { if(!p.done){ p.done = true; p.doneAt = now; p.updatedAt = now; } };
+    const add = (src, fields) => {
+      const tm = fromMin(Math.min(hour, 22) * 60), en = fromMin((Math.min(hour, 22) + 1) * 60);
+      hour++;
+      data.plans.push(Object.assign({ id: uid(), date: iso, time: tm, endTime: en, done: true, doneAt: now, createdAt: now, updatedAt: now, notes: '' }, fields));
+      created++;
+    };
+    const found = (src, hit) => { synced[src.id] = 1; if(hit){ complete(hit); matched++; return true; } return false; };
+    byDay[iso].session.forEach(s => {
+      const hit = dayPlans.find(p => p.kind === 'session' && p.horseId === s.horseId && p.workTypeId === s.workTypeId);
+      if(found(s, hit)) return;
+      add(s, { kind: 'session', horseId: s.horseId, workTypeId: s.workTypeId, place: s.place || '', duration: s.duration || 60, notes: s.notes || '' });
+    });
+    byDay[iso].event.forEach(e => {
+      const hit = dayPlans.find(p => p.kind === 'event' && p.horseId === e.horseId && p.category === e.category);
+      if(found(e, hit)) return;
+      add(e, { kind: 'event', horseId: e.horseId, category: e.category, notes: e.notes || '' });
+    });
+    byDay[iso].client.forEach(c => {
+      const hit = dayPlans.find(p => p.kind === 'client' && p.clientName === c.clientName && lt(p.lessonType) === lt(c.lessonType));
+      if(found(c, hit)) return;
+      add(c, { kind: 'client', clientName: c.clientName, lessonType: c.lessonType || '', horseId: c.horseId || null, amount: Number(c.amount) || 0, notes: c.notes || '' });
+    });
+  }
+  data.meta.updatedAt = now;
+  markDirty(); render();
+  if(created || matched) toast('Піксельний щоденник → місяць: додано планів ' + created + (matched ? ', позначено виконаними ' + matched : ''), 'ok');
 }
 
 // одноразово: уже позначені «не на стайні» дні проганяємо через те саме вікно узгодження
