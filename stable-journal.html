@@ -934,8 +934,13 @@ function viewTracker(){
       const ym = y + '-' + String(m+1).padStart(2,'0');
       const workN = sessionsOf(ui.horseId).filter(s => s.date.slice(0,7) === ym && !(wt(s.workTypeId) || {}).rest).length;
       const isCur = y === curY && m === curM;
-      // «лишилось днів» — тільки для поточного місяця, враховуючи сьогодні
-      const leftN = isCur ? dim - new Date().getDate() + 1 : null;
+      // «лишилось» — порожні пікселі від сьогодні до кінця поточного місяця (відпочинок, проставлений наперед, не рахується)
+      let leftN = null;
+      if(isCur){
+        const busy = new Set(sessionsOf(ui.horseId).filter(s => s.date.slice(0,7) === ym).map(s => s.date));
+        leftN = 0;
+        for(let d = new Date().getDate(); d <= dim; d++) if(!busy.has(ym + '-' + String(d).padStart(2,'0'))) leftN++;
+      }
       for(let d=1; d<=31; d++){
         if(d > dim){ html += '<div class="pix void"></div>'; continue; }
         const iso = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
@@ -943,7 +948,7 @@ function viewTracker(){
         html += '<div class="pix' + (iso===today?' today':'') + '" data-day="' + iso + '" style="' + pixStyle(sess) + '" title="' + fmtDateShort(iso) + '"></div>';
       }
       html += '<div class="scnt" title="Робочих сесій за місяць">' + (workN || isCur ? workN : '') + '</div>' +
-        '<div class="sleft" title="Днів до кінця місяця (з сьогоднішнім)">' + (leftN !== null ? leftN : '') + '</div>';
+        '<div class="sleft" title="Порожніх пікселів до кінця місяця (з сьогоднішнім)">' + (leftN !== null ? leftN : '') + '</div>';
     }
     html += '</div></div>';
   } else {
